@@ -28,20 +28,52 @@ document.addEventListener('DOMContentLoaded', async () => {
 async function loadMaintenanceData() {
   try {
     let logs = await window.ApiService.maintenance.list();
+    const allAssets = await window.ApiService.assets.list();
+
+    // Auto-sync: Check if any asset was added/marked with status "Maintenance" in Asset Registry but has no active log
+    const activeLogAssetIds = new Set(
+      logs.filter(l => l.status !== 'Completed' && l.status !== 'Resolved' && l.status !== 'Cancelled').map(l => String(l.assetId))
+    );
+
+    const assetsNeedingLog = allAssets.filter(a => a.status === 'Maintenance' && !activeLogAssetIds.has(String(a.id)));
+
+    for (const ast of assetsNeedingLog) {
+      try {
+        const autoLog = {
+          assetId: ast.id,
+          assetName: ast.name,
+          type: 'Scheduled',
+          cost: 0,
+          date: new Date().toISOString().split('T')[0],
+          description: `Auto-logged maintenance for ${ast.name} (${ast.id}).`
+        };
+        const res = await window.ApiService.maintenance.create(autoLog);
+        if (res && res.log) {
+          logs.push(res.log);
+        } else {
+          logs.push({
+            id: 'MNT-' + Math.floor(1000 + Math.random() * 9000),
+            ...autoLog,
+            status: 'Pending'
+          });
+        }
+      } catch (e) {
+        console.error("Auto log creation notice:", e);
+      }
+    }
+
     const role = window.RbacService.getCurrentUserRole();
     if (role === 'Employee') {
       const user = window.RbacService.getCurrentUser();
       const userName = (user ? (user.fullName || user.name) : '').toLowerCase();
-      // Fetch assets to see what this employee owns
-      const assets = await window.ApiService.assets.list();
-      const myAssetIds = new Set(assets.filter(a => a.owner && a.owner.toLowerCase() === userName).map(a => a.id));
-      logs = logs.filter(l => myAssetIds.has(l.assetId));
+      const myAssetIds = new Set(allAssets.filter(a => a.owner && a.owner.toLowerCase() === userName).map(a => String(a.id)));
+      logs = logs.filter(l => myAssetIds.has(String(l.assetId)));
     }
+
     currentLogs = logs;
     
     // 1. Calculate statistics
     const pendingCount = currentLogs.filter(l => l.status === 'Pending').length;
-    // Map completed or resolved
     const completedCount = currentLogs.filter(l => l.status === 'Completed' || l.status === 'Resolved').length;
     const totalCost = currentLogs.reduce((sum, log) => sum + (Number(log.cost) || 0), 0);
 
@@ -262,15 +294,11 @@ async function moveCardStatus(id, newStatus) {
 
 async function updateAssetMaintenanceState(assetId, logStatus) {
   try {
-    const assets = JSON.parse(localStorage.getItem('mock_assets') || '[]');
+    const assets = await window.ApiService.assets.list();
     const asset = assets.find(a => String(a.id) === String(assetId));
     if (asset) {
-      if (logStatus === 'Resolved' || logStatus === 'Completed') {
-        asset.status = 'Active'; // Reset to Active
-      } else {
-        asset.status = 'Maintenance'; // Set to Maintenance
-      }
-      localStorage.setItem('mock_assets', JSON.stringify(assets));
+      const newStatus = (logStatus === 'Resolved' || logStatus === 'Completed' || logStatus === 'Rejected' || logStatus === 'Cancelled') ? 'Active' : 'Maintenance';
+      await window.ApiService.assets.update(asset.id, { ...asset, status: newStatus });
     }
   } catch (err) {
     console.error("Failed to sync asset state:", err);

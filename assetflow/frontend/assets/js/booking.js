@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   try {
     bookingModal = new bootstrap.Modal(document.getElementById('bookingModal'));
     initCalendar();
+    await loadResourceOptions();
     await loadBookings();
     setupEventListeners();
   } catch (err) {
@@ -53,6 +54,33 @@ function initCalendar() {
   calendar.render();
 }
 
+async function loadResourceOptions() {
+  try {
+    const assets = await window.ApiService.assets.list();
+    const modalSelect = document.getElementById('booking-resource');
+    const timelineSelect = document.getElementById('timeline-resource-select');
+
+    let optionsHtml = '<option value="">Choose a resource...</option>';
+    let timelineOptionsHtml = '<option value="" selected disabled>Select a Resource</option>';
+
+    if (assets && assets.length > 0) {
+      assets.forEach(ast => {
+        const typeLabel = ast.type ? ` (${escapeHtml(ast.type)})` : '';
+        optionsHtml += `<option value="${escapeHtml(ast.name)}">${escapeHtml(ast.name)}${typeLabel}</option>`;
+        timelineOptionsHtml += `<option value="${escapeHtml(ast.name)}">${escapeHtml(ast.name)}</option>`;
+      });
+    } else {
+      optionsHtml = '<option value="">No registered assets available</option>';
+      timelineOptionsHtml = '<option value="" selected disabled>No resources registered</option>';
+    }
+
+    if (modalSelect) modalSelect.innerHTML = optionsHtml;
+    if (timelineSelect) timelineSelect.innerHTML = timelineOptionsHtml;
+  } catch (err) {
+    console.error("Failed to load resource options:", err);
+  }
+}
+
 async function loadBookings() {
   try {
     const bookings = await window.ApiService.bookings.list();
@@ -65,23 +93,24 @@ async function loadBookings() {
       ? bookings.filter(b => b.bookedBy && b.bookedBy.toLowerCase() === currentUserName.toLowerCase())
       : bookings;
     
-    // 1. Populate Calendar Events
-    const events = [];
-    const colors = {
-      'Conference Room A': '#2563EB',
-      'Conference Room B': '#10B981',
-      'Company EV Tesla-01': '#F59E0B',
-      'Testing Lab Alpha': '#8B5CF6',
-      'AR/VR Headset Kit': '#EF4444'
-    };
+    // 1. Populate Calendar Events with dynamic color palette
+    const colorPalette = ['#2563EB', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4', '#6366F1'];
+    const resourceColorMap = {};
+    let colorIdx = 0;
 
+    const events = [];
     filteredBookings.forEach(b => {
+      if (!resourceColorMap[b.resourceName]) {
+        resourceColorMap[b.resourceName] = colorPalette[colorIdx % colorPalette.length];
+        colorIdx++;
+      }
+
       if (b.status === 'Confirmed') {
         events.push({
           title: `${b.resourceName} (${b.bookedBy})`,
           start: `${b.date}T${b.startTime}:00`,
           end: `${b.date}T${b.endTime}:00`,
-          color: colors[b.resourceName] || '#64748B',
+          color: resourceColorMap[b.resourceName] || '#2563EB',
           extendedProps: b
         });
       }
@@ -126,12 +155,12 @@ async function loadBookings() {
           listHtml += `
             <div class="border-bottom pb-3 mb-3 last-no-border">
               <div class="d-flex justify-content-between align-items-start mb-1">
-                <span class="fw-semibold text-dark-custom" style="color: var(--text-color);">${b.resourceName}</span>
+                <span class="fw-semibold text-dark-custom" style="color: var(--text-color);">${escapeHtml(b.resourceName)}</span>
                 <span class="badge ${statusBadge} rounded-pill px-2 py-0.5" style="font-size:0.7rem;">${b.status}</span>
               </div>
               <p class="text-muted small mb-1.5"><i class="fa-regular fa-clock me-1"></i>${b.date} (${b.startTime} - ${b.endTime})</p>
               <div class="d-flex justify-content-between align-items-center">
-                <small class="text-muted fs-8">By: ${b.bookedBy}</small>
+                <small class="text-muted fs-8">By: ${escapeHtml(b.bookedBy)}</small>
                 ${cancelBtnHtml}
               </div>
             </div>
@@ -306,12 +335,8 @@ function setupEventListeners() {
       // Auto-set the selected resource in the booking modal select field
       setTimeout(() => {
         const modalSelect = document.getElementById('booking-resource');
-        if (modalSelect) {
-          if (resourceVal === 'ConfRoomB2') {
-            modalSelect.value = 'Conference Room B';
-          } else if (resourceVal === 'Tesla01') {
-            modalSelect.value = 'Company EV Tesla-01';
-          }
+        if (modalSelect && resourceVal) {
+          modalSelect.value = resourceVal;
         }
       }, 300);
     });
@@ -320,23 +345,32 @@ function setupEventListeners() {
   // Handle timeline resource select toggle
   const resourceSelect = document.getElementById('timeline-resource-select');
   if (resourceSelect) {
-    resourceSelect.addEventListener('change', (e) => {
+    resourceSelect.addEventListener('change', async (e) => {
       const val = e.target.value;
-      const timelineGrid = document.querySelector('#btn-timeline-book-shortcut').previousElementSibling;
-      if (!timelineGrid) return;
+      const timelineGrid = document.querySelector('#btn-timeline-book-shortcut')?.previousElementSibling;
+      if (!timelineGrid || !val) return;
       
-      if (val === 'ConfRoomB2') {
-        timelineGrid.innerHTML = `
-          <div class="p-3 text-center text-muted small border rounded-3 border-dashed border-secondary-subtle">
-            No bookings scheduled for the selected resource today.
-          </div>
-        `;
-      } else {
-        timelineGrid.innerHTML = `
-          <div class="p-3 text-center text-muted small border rounded-3 border-dashed border-secondary-subtle">
-            No bookings scheduled for the selected resource today.
-          </div>
-        `;
+      try {
+        const bookings = await window.ApiService.bookings.list();
+        const todayStr = new Date().toISOString().split('T')[0];
+        const resourceBookings = bookings.filter(b => b.resourceName === val && b.status === 'Confirmed' && b.date === todayStr);
+
+        if (resourceBookings.length > 0) {
+          timelineGrid.innerHTML = resourceBookings.map(b => `
+            <div class="p-2.5 bg-primary-subtle text-primary border border-primary-subtle rounded-3 small mb-2">
+              <div class="fw-bold"><i class="fa-regular fa-clock me-1"></i>${escapeHtml(b.startTime)} - ${escapeHtml(b.endTime)}</div>
+              <div class="small text-muted">Booked by: ${escapeHtml(b.bookedBy)}</div>
+            </div>
+          `).join('');
+        } else {
+          timelineGrid.innerHTML = `
+            <div class="p-3 text-center text-muted small border rounded-3 border-dashed border-secondary-subtle">
+              No bookings scheduled for <strong>${escapeHtml(val)}</strong> today.
+            </div>
+          `;
+        }
+      } catch (err) {
+        console.error("Failed to filter timeline:", err);
       }
     });
   }

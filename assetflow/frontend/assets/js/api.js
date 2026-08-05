@@ -109,18 +109,21 @@ const fallbackStore = {
   }
 };
 
-// Initialize fallback store clean without static dummy departments/users
-if (!localStorage.getItem('af_fb_initialized_v5')) {
-  // Wipe any old static departments from fallback storage
+// Initialize fallback store clean without static dummy departments/users/bookings/maintenance
+if (!localStorage.getItem('af_fb_initialized_v7')) {
+  // Wipe any old static data from fallback storage
   localStorage.removeItem('af_fb_departments');
+  localStorage.removeItem('af_fb_bookings');
+  localStorage.removeItem('af_fb_maintenance');
   fallbackStore.set('departments', []);
+  fallbackStore.set('maintenance', []);
 
   // Seed initial admin account only (no dummy employees or dummy department heads)
   fallbackStore.set('registered_users', [
     { email: 'admin@assetflow.com', password: 'Password123!', fullName: 'Rahul Sharma', role: 'Admin', department: 'Management', avatar: '', isVerified: true }
   ]);
 
-  localStorage.setItem('af_fb_initialized_v5', 'true');
+  localStorage.setItem('af_fb_initialized_v7', 'true');
 }
 
 // Global API Services Module
@@ -286,7 +289,7 @@ const ApiService = {
         return res.data;
       } catch (err) {
         return handleApiError(err, () => {
-          return fallbackStore.get('assets');
+          return fallbackStore.get('assets', []);
         });
       }
     },
@@ -296,7 +299,7 @@ const ApiService = {
         return res.data;
       } catch (err) {
         return handleApiError(err, () => {
-          const assets = fallbackStore.get('assets');
+          const assets = fallbackStore.get('assets', []);
           const newAsset = { ...asset, id: 'AST-' + String(assets.length + 1).padStart(3, '0') };
           assets.push(newAsset);
           fallbackStore.set('assets', assets);
@@ -310,7 +313,7 @@ const ApiService = {
         return res.data;
       } catch (err) {
         return handleApiError(err, () => {
-          const assets = fallbackStore.get('assets');
+          const assets = fallbackStore.get('assets', []);
           const idx = assets.findIndex(a => a.id === id);
           if (idx !== -1) {
             assets[idx] = { ...assets[idx], ...assetData };
@@ -327,7 +330,7 @@ const ApiService = {
         return res.data;
       } catch (err) {
         return handleApiError(err, () => {
-          let assets = fallbackStore.get('assets');
+          let assets = fallbackStore.get('assets', []);
           assets = assets.filter(a => a.id !== id);
           fallbackStore.set('assets', assets);
           return { success: true, message: "Asset deleted successfully!" };
@@ -344,7 +347,7 @@ const ApiService = {
         return res.data;
       } catch (err) {
         return handleApiError(err, () => {
-          return fallbackStore.get('allocations');
+          return fallbackStore.get('allocations', []);
         });
       }
     },
@@ -354,7 +357,7 @@ const ApiService = {
         return res.data;
       } catch (err) {
         return handleApiError(err, () => {
-          const allocations = fallbackStore.get('allocations');
+          const allocations = fallbackStore.get('allocations', []);
           const newAlloc = { ...allocation, id: 'ALC-' + String(allocations.length + 1).padStart(3, '0'), status: 'Pending Approval' };
           allocations.push(newAlloc);
           fallbackStore.set('allocations', allocations);
@@ -368,13 +371,13 @@ const ApiService = {
         return res.data;
       } catch (err) {
         return handleApiError(err, () => {
-          const allocations = fallbackStore.get('allocations');
+          const allocations = fallbackStore.get('allocations', []);
           const idx = allocations.findIndex(a => a.id === id);
           if (idx !== -1) {
             allocations[idx].status = status;
             if (status === 'Approved' && assetId) {
               allocations[idx].assetId = assetId;
-              const assets = fallbackStore.get('assets');
+              const assets = fallbackStore.get('assets', []);
               const asset = assets.find(a => a.id === assetId);
               if (asset) {
                 allocations[idx].assetName = asset.name;
@@ -399,7 +402,7 @@ const ApiService = {
         return res.data;
       } catch (err) {
         return handleApiError(err, () => {
-          return fallbackStore.get('bookings');
+          return fallbackStore.get('bookings', []);
         });
       }
     },
@@ -409,7 +412,7 @@ const ApiService = {
         return res.data;
       } catch (err) {
         return handleApiError(err, () => {
-          const bookings = fallbackStore.get('bookings');
+          const bookings = fallbackStore.get('bookings', []);
           const newBooking = { ...booking, id: 'BKG-' + String(bookings.length + 1).padStart(3, '0'), status: 'Confirmed' };
           bookings.push(newBooking);
           fallbackStore.set('bookings', bookings);
@@ -423,7 +426,7 @@ const ApiService = {
         return res.data;
       } catch (err) {
         return handleApiError(err, () => {
-          const bookings = fallbackStore.get('bookings');
+          const bookings = fallbackStore.get('bookings', []);
           const idx = bookings.findIndex(b => b.id === id);
           if (idx !== -1) {
             bookings[idx].status = 'Cancelled';
@@ -444,7 +447,7 @@ const ApiService = {
         return res.data;
       } catch (err) {
         return handleApiError(err, () => {
-          return fallbackStore.get('maintenance');
+          return fallbackStore.get('maintenance', []);
         });
       }
     },
@@ -454,7 +457,7 @@ const ApiService = {
         return res.data;
       } catch (err) {
         return handleApiError(err, () => {
-          const maintenance = fallbackStore.get('maintenance');
+          const maintenance = fallbackStore.get('maintenance', []);
           const newLog = { ...log, id: 'MNT-' + String(maintenance.length + 1).padStart(3, '0'), status: 'Pending' };
           maintenance.push(newLog);
           fallbackStore.set('maintenance', maintenance);
@@ -468,7 +471,7 @@ const ApiService = {
         return res.data;
       } catch (err) {
         return handleApiError(err, () => {
-          const maintenance = fallbackStore.get('maintenance');
+          const maintenance = fallbackStore.get('maintenance', []);
           const idx = maintenance.findIndex(m => m.id === id);
           if (idx !== -1) {
             maintenance[idx].status = status;
