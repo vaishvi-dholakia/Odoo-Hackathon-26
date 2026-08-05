@@ -207,34 +207,49 @@ body {
 
 /* Buttons with Ripple/Hover effects */
 .btn-primary-custom {
-  background-color: var(--primary-color);
+  background-color: var(--primary-color) !important;
   border: none;
-  color: #white;
+  color: #ffffff !important;
   padding: 0.6rem 1.2rem;
   border-radius: var(--border-radius-sm);
   font-weight: 500;
   transition: var(--transition);
   position: relative;
   overflow: hidden;
+  text-decoration: none;
+  display: inline-block;
 }
 
-.btn-primary-custom:hover {
-  opacity: 0.9;
+.btn-primary-custom:hover,
+.btn-primary-custom:focus,
+.btn-primary-custom:active,
+.btn-primary-custom:visited {
+  background-color: #1d4ed8 !important;
+  color: #ffffff !important;
+  opacity: 0.95;
   transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+  text-decoration: none;
 }
 
 .btn-secondary-custom {
   background-color: var(--sidebar-hover);
   border: 1px solid var(--border-color);
-  color: var(--text-color);
+  color: var(--text-color) !important;
   padding: 0.6rem 1.2rem;
   border-radius: var(--border-radius-sm);
   font-weight: 500;
   transition: var(--transition);
+  text-decoration: none;
+  display: inline-block;
 }
 
-.btn-secondary-custom:hover {
+.btn-secondary-custom:hover,
+.btn-secondary-custom:focus,
+.btn-secondary-custom:active {
   background-color: var(--border-color);
+  color: var(--text-color) !important;
+  text-decoration: none;
 }
 
 /* Ripple effect styles */
