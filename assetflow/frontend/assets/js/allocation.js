@@ -50,9 +50,16 @@ async function initializeWorkspace() {
     // Fill workspace transfer target dropdown
     const transferToSelect = document.getElementById('workspace-transfer-to');
     if (transferToSelect) {
-      const employees = ['Raj Malhotra', 'Arjun Nair', 'Priya Shah', 'Rahul Varma', 'Rahul Sharma', 'Amit Patel', 'Amit Rao', 'Saad Iqbal'];
+      let employeesList = [];
+      try {
+        const users = window.ApiService.users ? await window.ApiService.users.list() : [];
+        employeesList = users.map(u => u.fullName || u.name || u.email).filter(Boolean);
+      } catch (e) {
+        console.warn('Failed to load employees for dropdown');
+      }
+      
       let html = '<option value="">Select Employee...</option>';
-      employees.forEach(emp => {
+      employeesList.forEach(emp => {
         html += `<option value="${emp}">${emp}</option>`;
       });
       transferToSelect.innerHTML = html;
@@ -85,35 +92,11 @@ function handleAssetSelection(assetId) {
   historySection.classList.remove('d-none');
 
   // Populate history
-  let historyHtml = '';
-  if (asset.id === 'AF-0114') {
-    historyHtml = `
-      <div class="p-2 border-bottom border-secondary-subtle">
-        <i class="fa-solid fa-clock-rotate-left me-2 text-primary"></i><strong>Mar 12</strong> - Allocated to Priya Shah (Engineering)
-      </div>
-      <div class="p-2">
-        <i class="fa-solid fa-clock-rotate-left me-2 text-muted"></i><strong>Jan 04</strong> - Returned by Arjun Nair (Condition: Good)
-      </div>
-    `;
-  } else if (asset.id === 'AST-001') {
-    historyHtml = `
-      <div class="p-2">
-        <i class="fa-solid fa-clock-rotate-left me-2 text-primary"></i><strong>Jan 15</strong> - Allocated to Rahul Sharma (Management)
-      </div>
-    `;
-  } else if (asset.id === 'AST-002') {
-    historyHtml = `
-      <div class="p-2">
-        <i class="fa-solid fa-clock-rotate-left me-2 text-primary"></i><strong>Feb 10</strong> - Allocated to Amit Patel (Asset Management)
-      </div>
-    `;
-  } else {
-    historyHtml = `
-      <div class="p-2 text-muted italic">
-        No previous allocation history for this asset.
-      </div>
-    `;
-  }
+  let historyHtml = `
+    <div class="p-2 text-muted italic">
+      No previous allocation history for this asset.
+    </div>
+  `;
   historyList.innerHTML = historyHtml;
 
   // Check allocation conflict

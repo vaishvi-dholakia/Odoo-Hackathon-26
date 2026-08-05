@@ -45,7 +45,7 @@ async function loadDashboardData(role) {
 
     const currentUser = window.RbacService.getCurrentUser() || {};
     const userDept = currentUser.department || 'IT';
-    const userName = currentUser.fullName || currentUser.name || 'Arjun Nair';
+    const userName = currentUser.fullName || currentUser.name || currentUser.email || 'Employee';
 
     let filteredAssets = assets;
     let filteredAllocations = allocations;

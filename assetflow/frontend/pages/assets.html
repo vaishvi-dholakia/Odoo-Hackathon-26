@@ -121,8 +121,9 @@
                 <!-- File/Image Upload Preview -->
                 <div class="mb-3 text-center">
                   <label class="form-label-custom d-block">Asset Photo / Document Preview</label>
-                  <div class="image-preview-container" id="asset-preview-box" style="border-radius: var(--border-radius);">
-                    <img src="https://images.unsplash.com/photo-1546868871-7041f2a55e12?auto=format&fit=crop&q=80&w=150" alt="Asset Photo" id="asset-img-preview">
+                  <div class="image-preview-container" id="asset-preview-box" style="border-radius: var(--border-radius); background-color: var(--sidebar-hover);">
+                    <i class="fa-solid fa-image text-muted" style="font-size: 2.5rem; position: absolute; z-index: 1;"></i>
+                    <img src="" alt="" id="asset-img-preview" style="display: none; position: relative; z-index: 2; width: 100%; height: 100%; object-fit: cover;">
                   </div>
                   <button type="button" class="btn btn-secondary-custom btn-sm" onclick="document.getElementById('asset-photo-upload').click();">
                     <i class="fa-solid fa-camera me-2"></i>Upload Photo

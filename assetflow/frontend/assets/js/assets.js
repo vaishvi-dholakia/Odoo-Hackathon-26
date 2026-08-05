@@ -148,7 +148,9 @@ function setupEventListeners() {
       document.getElementById('assetModalLabel').textContent = 'Add Asset';
       document.getElementById('asset-form').reset();
       document.getElementById('asset-edit-id').value = '';
-      document.getElementById('asset-img-preview').src = 'https://images.unsplash.com/photo-1546868871-7041f2a55e12?auto=format&fit=crop&q=80&w=150';
+      const previewImg = document.getElementById('asset-img-preview');
+      previewImg.src = '';
+      previewImg.style.display = 'none';
       window.selectedAssetPhotoUrl = '';
       
       // Clear errors
@@ -169,6 +171,7 @@ function setupEventListeners() {
         const reader = new FileReader();
         reader.onload = (event) => {
           previewImg.src = event.target.result;
+          previewImg.style.display = 'block';
           window.selectedAssetPhotoUrl = event.target.result;
         };
         reader.readAsDataURL(file);
@@ -196,10 +199,13 @@ function setupEventListeners() {
         document.getElementById('asset-location').value = asset.location || '';
         document.getElementById('asset-owner').value = asset.owner || '';
         
+        const previewImg = document.getElementById('asset-img-preview');
         if (asset.photo) {
-          document.getElementById('asset-img-preview').src = asset.photo;
+          previewImg.src = asset.photo;
+          previewImg.style.display = 'block';
         } else {
-          document.getElementById('asset-img-preview').src = 'https://images.unsplash.com/photo-1546868871-7041f2a55e12?auto=format&fit=crop&q=80&w=150';
+          previewImg.src = '';
+          previewImg.style.display = 'none';
         }
 
         // Clear errors
@@ -311,7 +317,7 @@ function setupEventListeners() {
           status,
           location,
           owner,
-          photo: window.selectedAssetPhotoUrl || document.getElementById('asset-img-preview').src
+          photo: window.selectedAssetPhotoUrl || document.getElementById('asset-img-preview').getAttribute('src') || ''
         };
 
         if (id) {
