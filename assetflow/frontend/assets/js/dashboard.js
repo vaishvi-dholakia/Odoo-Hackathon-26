@@ -40,7 +40,7 @@ async function loadDashboardData(role) {
       window.ApiService.maintenance.list(),
       window.ApiService.notifications.list(),
       window.ApiService.departments ? window.ApiService.departments.list() : Promise.resolve([]),
-      window.ApiService.users ? window.ApiService.users.list() : Promise.resolve([])
+      (window.ApiService.users && role === 'Admin') ? window.ApiService.users.list() : Promise.resolve([])
     ]);
 
     const currentUser = window.RbacService.getCurrentUser() || {};

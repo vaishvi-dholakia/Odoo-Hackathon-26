@@ -309,6 +309,7 @@ window.assignDeptHead = async (deptId, newEmail, oldEmail) => {
     }
     await loadDeptHeads();
     await loadTransitionHistory();
+    await loadSystemUsers();
   } catch (err) {
     Swal.fire({
       title: 'Assignment Failed',

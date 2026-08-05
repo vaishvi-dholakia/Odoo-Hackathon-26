@@ -279,6 +279,11 @@ body {
   transition: var(--transition);
 }
 
+select.form-control-custom,
+.form-select.form-control-custom {
+  padding-right: 2.5rem;
+}
+
 .form-control-custom:focus {
   border-color: var(--primary-color);
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
