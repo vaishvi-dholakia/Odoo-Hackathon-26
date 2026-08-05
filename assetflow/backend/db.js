@@ -172,25 +172,18 @@ async function initializeDatabase() {
 }
 
 async function seedDatabase() {
-  // Seed Departments first
+  // Database initialization check - no static dummy departments seeded
   const deptsCount = await query('SELECT COUNT(*) as count FROM departments');
   if (deptsCount[0].count === 0) {
-    console.log('Seeding default departments...');
-    const defaultDepts = ['IT', 'Engineering', 'Human Resources', 'Marketing', 'Finance'];
-    for (const d of defaultDepts) {
-      await query('INSERT INTO departments (name) VALUES (?)', [d]);
-    }
+    console.log('Departments table initialized empty. Admin can add custom departments.');
   }
 
-  // Check if users empty
+  // Seed default admin only if users table is completely empty
   const usersCount = await query('SELECT COUNT(*) as count FROM users');
   if (usersCount[0].count === 0) {
-    console.log('Seeding default users (1 example per role)...');
+    console.log('Seeding initial admin account...');
     const defaultUsers = [
-      ['admin@assetflow.com', 'Password123!', 'Rahul Sharma', 'Admin', 'Management', null, true, 'Active', null],
-      ['manager@assetflow.com', 'Password123!', 'Amit Patel', 'Asset Manager', 'Asset Management', null, true, 'Active', null],
-      ['it-head@assetflow.com', 'Password123!', 'Priya Iyer', 'Department Head', 'IT', null, true, 'Active', null],
-      ['employee@assetflow.com', 'Password123!', 'Arjun Nair', 'Employee', 'IT', null, true, 'Active', null]
+      ['admin@assetflow.com', 'Password123!', 'Rahul Sharma', 'Admin', 'Management', null, true, 'Active', null]
     ];
     for (const u of defaultUsers) {
       await query(
@@ -200,9 +193,7 @@ async function seedDatabase() {
     }
   }
 
-
-
-  console.log('Database seeding verified successfully.');
+  console.log('Database verified successfully.');
 }
 
 module.exports = {

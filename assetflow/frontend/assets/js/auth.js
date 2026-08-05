@@ -179,7 +179,14 @@ function setupSignupForm() {
     if (!select) return;
     try {
       const depts = await window.ApiService.departments.list();
-      select.innerHTML = depts.map(d => `<option value="${d.name.replace(/"/g, '&quot;')}">${d.name}</option>`).join('');
+      if (depts.length === 0) {
+        select.innerHTML = '<option value="">No departments available</option>';
+      } else {
+        select.innerHTML = '<option value="">Select department...</option>' + depts.map(d => {
+          const name = typeof d === 'string' ? d : d.name;
+          return `<option value="${name.replace(/"/g, '&quot;')}">${name}</option>`;
+        }).join('');
+      }
     } catch (err) {
       console.error("Failed to load departments:", err);
     }
@@ -195,7 +202,7 @@ function setupSignupForm() {
     const password = document.getElementById('password').value;
     const confirmPassword = document.getElementById('confirm-password').value;
     const role = 'Employee';
-    const department = document.getElementById('department').value || 'IT';
+    const department = document.getElementById('department').value || '';
 
     let isValid = true;
 

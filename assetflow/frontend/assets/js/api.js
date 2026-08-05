@@ -109,19 +109,18 @@ const fallbackStore = {
   }
 };
 
-// Initialize fallback store with sample data if empty
-if (!localStorage.getItem('af_fb_initialized_v4')) {
+// Initialize fallback store clean without static dummy departments/users
+if (!localStorage.getItem('af_fb_initialized_v5')) {
+  // Wipe any old static departments from fallback storage
+  localStorage.removeItem('af_fb_departments');
+  fallbackStore.set('departments', []);
 
-
-  // Seed default registered users
+  // Seed initial admin account only (no dummy employees or dummy department heads)
   fallbackStore.set('registered_users', [
-    { email: 'admin@assetflow.com', password: 'Password123!', fullName: 'Rahul Sharma', role: 'Admin', department: 'Management', avatar: '', isVerified: true },
-    { email: 'manager@assetflow.com', password: 'Password123!', fullName: 'Amit Patel', role: 'Asset Manager', department: 'Asset Management', avatar: '', isVerified: true },
-    { email: 'it-head@assetflow.com', password: 'Password123!', fullName: 'Priya Iyer', role: 'Department Head', department: 'IT', avatar: '', isVerified: true },
-    { email: 'employee@assetflow.com', password: 'Password123!', fullName: 'Arjun Nair', role: 'Employee', department: 'IT', avatar: '', isVerified: true }
+    { email: 'admin@assetflow.com', password: 'Password123!', fullName: 'Rahul Sharma', role: 'Admin', department: 'Management', avatar: '', isVerified: true }
   ]);
 
-  localStorage.setItem('af_fb_initialized_v4', 'true');
+  localStorage.setItem('af_fb_initialized_v5', 'true');
 }
 
 // Global API Services Module
@@ -145,6 +144,10 @@ const ApiService = {
           return { success: true, message: "Signup successful! Please log in.", email: userData.email, bypassOtp: true };
         });
       }
+    },
+
+    register: async (userData) => {
+      return ApiService.auth.signup(userData);
     },
 
     verifyOtp: async (email, otp) => {
@@ -597,7 +600,7 @@ const ApiService = {
         return res.data;
       } catch (err) {
         return handleApiError(err, () => {
-          return fallbackStore.get('departments', ['IT', 'Engineering', 'Human Resources', 'Marketing', 'Finance']);
+          return fallbackStore.get('departments', []);
         });
       }
     },
@@ -607,11 +610,24 @@ const ApiService = {
         return res.data;
       } catch (err) {
         return handleApiError(err, () => {
-          const depts = fallbackStore.get('departments', ['IT', 'Engineering', 'Human Resources', 'Marketing', 'Finance']);
+          const depts = fallbackStore.get('departments', []);
           if (depts.includes(name)) throw new Error("Department already exists.");
           depts.push(name);
           fallbackStore.set('departments', depts);
           return { success: true, message: "Department added successfully!" };
+        });
+      }
+    },
+    delete: async (name) => {
+      try {
+        const res = await api.delete(`/departments/${encodeURIComponent(name)}`);
+        return res.data;
+      } catch (err) {
+        return handleApiError(err, () => {
+          let depts = fallbackStore.get('departments', []);
+          const filtered = depts.filter(d => (typeof d === 'string' ? d : d.name) !== name);
+          fallbackStore.set('departments', filtered);
+          return { success: true, message: "Department deleted successfully!" };
         });
       }
     }

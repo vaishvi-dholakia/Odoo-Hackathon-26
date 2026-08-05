@@ -23,6 +23,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       await loadTransitionHistory();
 
       setupDeptFormSubmit();
+      setupAddHeadUserFormSubmit();
+      populateHeadDepartmentDropdown();
     }
   } catch (err) {
     console.error(err);
@@ -198,15 +200,21 @@ async function loadDeptHeads() {
 
       html += `
         <tr>
-          <td><strong>${dept.name}</strong></td>
+          <td><strong>${escapeHtml(dept.name)}</strong></td>
           <td>
             ${currentHead 
-              ? `<span class="badge bg-primary-subtle text-primary rounded-pill px-2.5 py-1 fw-medium"><i class="fa-solid fa-user-tie me-1"></i>${currentHead.fullName || currentHead.name}</span>`
+              ? `<span class="badge bg-primary-subtle text-primary rounded-pill px-2.5 py-1 fw-medium"><i class="fa-solid fa-user-tie me-1"></i>${escapeHtml(currentHead.fullName || currentHead.name)}</span>`
               : '<span class="text-muted small">None Assigned</span>'
             }
           </td>
           <td>
-            <select class="form-select form-control-custom py-1 fs-7 w-auto d-inline-block" onchange="assignDeptHead('${dept.id}', this.value, '${currentHead ? currentHead.email : ''}')">
+            ${currentHead 
+              ? `<span class="text-dark small fw-medium"><i class="fa-regular fa-envelope me-1 text-primary"></i>${escapeHtml(currentHead.email)}</span>`
+              : '<span class="text-muted small">-</span>'
+            }
+          </td>
+          <td>
+            <select class="form-select form-control-custom py-1 fs-7 w-auto d-inline-block" onchange="assignDeptHead('${escapeHtml(dept.id)}', this.value, '${currentHead ? escapeHtml(currentHead.email) : ''}')">
               ${optionsHtml}
             </select>
           </td>
@@ -317,23 +325,60 @@ async function loadDepartmentsList() {
   const tbody = document.getElementById('departments-list-body');
   if (!tbody) return;
 
-  tbody.innerHTML = '<tr><td colspan="2" class="text-center py-3"><span class="spinner-border spinner-border-sm text-primary me-2"></span>Loading...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="3" class="text-center py-3"><span class="spinner-border spinner-border-sm text-primary me-2"></span>Loading...</td></tr>';
   try {
     const list = await window.ApiService.departments.list();
     if (list.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="2" class="text-center text-muted py-3">No departments defined.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-3">No departments defined. Add a new department above.</td></tr>';
       return;
     }
     tbody.innerHTML = list.map((dept, index) => `
       <tr>
         <td class="fw-semibold text-muted">${index + 1}</td>
         <td class="fw-semibold" style="color: var(--text-color);">${escapeHtml(dept.name)}</td>
+        <td class="text-end">
+          <button type="button" class="btn btn-sm btn-outline-danger py-0.5 px-2" title="Delete Department" onclick="deleteDepartment('${escapeHtml(dept.name)}')">
+            <i class="fa-solid fa-trash-can me-1"></i>Delete
+          </button>
+        </td>
       </tr>
     `).join('');
   } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="2" class="text-center text-danger py-3">Error loading departments: ${err.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="3" class="text-center text-danger py-3">Error loading departments: ${err.message}</td></tr>`;
   }
 }
+
+window.deleteDepartment = async (deptName) => {
+  const result = await Swal.fire({
+    title: 'Delete Department?',
+    html: `Are you sure you want to delete <strong>"${escapeHtml(deptName)}"</strong>?<br><small class="text-muted">This action cannot be undone.</small>`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#dc2626',
+    cancelButtonColor: '#64748B',
+    confirmButtonText: 'Yes, Delete'
+  });
+
+  if (!result.isConfirmed) return;
+
+  window.AssetFlowLoader.show();
+  try {
+    await window.ApiService.departments.delete(deptName);
+    Swal.fire({
+      title: 'Deleted!',
+      text: `Department "${deptName}" was removed successfully.`,
+      icon: 'success',
+      confirmButtonColor: '#2563EB'
+    });
+    await loadDepartmentsList();
+    await loadDeptHeads();
+    await populateHeadDepartmentDropdown();
+  } catch (err) {
+    Swal.fire('Error', err.message || 'Failed to delete department', 'error');
+  } finally {
+    window.AssetFlowLoader.hide();
+  }
+};
 
 function setupDeptFormSubmit() {
   const addDeptForm = document.getElementById('add-dept-form');
@@ -357,10 +402,87 @@ function setupDeptFormSubmit() {
       input.value = '';
       await loadDepartmentsList();
       await loadDeptHeads();
+      await populateHeadDepartmentDropdown();
     } catch (err) {
       Swal.fire('Error', err.message, 'error');
     } finally {
       window.AssetFlowLoader.hide();
+    }
+  });
+}
+
+async function populateHeadDepartmentDropdown() {
+  const select = document.getElementById('head-department');
+  if (!select) return;
+
+  try {
+    const list = await window.ApiService.departments.list();
+    if (list.length === 0) {
+      select.innerHTML = '<option value="">-- No Departments Available --</option>';
+      return;
+    }
+    select.innerHTML = list.map(d => `<option value="${escapeHtml(d.name)}">${escapeHtml(d.name)}</option>`).join('');
+  } catch (err) {
+    console.error("Failed to populate modal departments", err);
+  }
+}
+
+function setupAddHeadUserFormSubmit() {
+  const form = document.getElementById('add-head-user-form');
+  if (!form) return;
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const fullName = document.getElementById('head-fullname').value.trim();
+    const email = document.getElementById('head-email').value.trim();
+    const password = document.getElementById('head-password').value;
+    const department = document.getElementById('head-department').value;
+
+    if (!fullName || !email || !password || !department) {
+      Swal.fire('Validation Error', 'All fields are required.', 'warning');
+      return;
+    }
+
+    const spinner = document.getElementById('head-spinner');
+    const submitBtn = document.getElementById('btn-save-head-user');
+    if (spinner) spinner.classList.remove('d-none');
+    if (submitBtn) submitBtn.disabled = true;
+
+    try {
+      // 1. Create User via Auth Service
+      const signupFn = window.ApiService.auth.register || window.ApiService.auth.signup;
+      await signupFn({
+        fullName,
+        email,
+        password,
+        role: 'Department Head',
+        department
+      });
+
+      // 2. Update role and assign as Head
+      await window.ApiService.users.updateRole(email, 'Department Head', department);
+
+      // Hide Modal
+      const modalEl = document.getElementById('addHeadModal');
+      const modalInstance = bootstrap.Modal.getInstance(modalEl);
+      if (modalInstance) modalInstance.hide();
+
+      form.reset();
+
+      Swal.fire({
+        title: 'Department Head Created!',
+        text: `${fullName} has been registered and assigned as Head of ${department}.`,
+        icon: 'success',
+        confirmButtonColor: '#2563EB'
+      });
+
+      await loadDeptHeads();
+    } catch (err) {
+      Swal.fire('Error', err.message || 'Failed to create department head', 'error');
+    } finally {
+      if (spinner) spinner.classList.add('d-none');
+      if (submitBtn) submitBtn.disabled = false;
     }
   });
 }

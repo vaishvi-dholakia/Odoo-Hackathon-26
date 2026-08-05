@@ -203,6 +203,19 @@ app.post('/api/departments', authenticateToken, async (req, res) => {
   }
 });
 
+app.delete('/api/departments/:name', authenticateToken, async (req, res) => {
+  if (req.user.role !== 'Admin') {
+    return res.status(403).json({ message: 'Access Denied: Only administrators can delete departments.' });
+  }
+  const { name } = req.params;
+  try {
+    await db.query('DELETE FROM departments WHERE name = ?', [name]);
+    res.json({ success: true, message: 'Department deleted successfully!' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 // 3. Asset Endpoints
 app.get('/api/assets', async (req, res) => {
   try {
