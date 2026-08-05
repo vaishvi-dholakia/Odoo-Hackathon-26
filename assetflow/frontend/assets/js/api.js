@@ -135,17 +135,7 @@ const ApiService = {
         const res = await api.post('/auth/signup', userData);
         return res.data;
       } catch (err) {
-        return handleApiError(err, () => {
-          // Fallback signup: Bypass OTP, register directly
-          const registeredUsers = fallbackStore.get('registered_users', []);
-          if (registeredUsers.some(u => u.email === userData.email)) {
-            throw new Error("Email already registered.");
-          }
-          const newUser = { ...userData, isVerified: true, id: 'USR-' + Math.floor(1000 + Math.random() * 9000) };
-          registeredUsers.push(newUser);
-          fallbackStore.set('registered_users', registeredUsers);
-          return { success: true, message: "Signup successful! Please log in.", email: userData.email, bypassOtp: true };
-        });
+        return handleApiError(err);
       }
     },
 
@@ -158,9 +148,7 @@ const ApiService = {
         const res = await api.post('/auth/verify-otp', { email, otp });
         return res.data;
       } catch (err) {
-        return handleApiError(err, () => {
-          return { success: true, message: "Email verified successfully!" };
-        });
+        return handleApiError(err);
       }
     },
 
@@ -169,9 +157,7 @@ const ApiService = {
         const res = await api.post('/auth/resend-otp', { email });
         return res.data;
       } catch (err) {
-        return handleApiError(err, () => {
-          return { success: true, message: "New OTP sent successfully!" };
-        });
+        return handleApiError(err);
       }
     },
 
@@ -182,29 +168,7 @@ const ApiService = {
         localStorage.setItem('user', JSON.stringify(res.data.user));
         return res.data;
       } catch (err) {
-        return handleApiError(err, () => {
-          const registeredUsers = fallbackStore.get('registered_users', []);
-          const user = registeredUsers.find(u => u.email === credentials.email);
-          if (!user) throw new Error("Invalid email or password.");
-          
-          if (user.password !== credentials.password) throw new Error("Invalid email or password.");
-          if (!user.isVerified) {
-            const err = new Error("Please verify your email before logging in.");
-            err.unverified = true;
-            throw err;
-          }
-          
-          const userProfile = { 
-            name: user.fullName || user.name, 
-            email: user.email, 
-            role: user.role || 'Employee', 
-            department: user.department || 'IT',
-            avatar: user.avatar || '' 
-          };
-          localStorage.setItem('token', 'fallback-mock-jwt-token-' + userProfile.role.replace(' ', ''));
-          localStorage.setItem('user', JSON.stringify(userProfile));
-          return { success: true, user: userProfile, token: 'fallback-mock-jwt-token-' + userProfile.role.replace(' ', '') };
-        });
+        return handleApiError(err);
       }
     },
 
@@ -213,17 +177,7 @@ const ApiService = {
         const res = await api.post('/auth/forgot-password', { email });
         return res.data;
       } catch (err) {
-        return handleApiError(err, () => {
-          const registeredUsers = fallbackStore.get('registered_users', []);
-          const userExists = credentials => true; // Allow mock for demo
-          
-          const otp = Math.floor(100000 + Math.random() * 900000).toString();
-          localStorage.setItem('reset_email', email);
-          localStorage.setItem('reset_otp', otp);
-          
-          console.log(`[OFFLINE DEV] Reset password OTP for ${email}: ${otp}`);
-          return { success: true, message: "Reset code sent to your email." };
-        });
+        return handleApiError(err);
       }
     },
 
@@ -232,26 +186,7 @@ const ApiService = {
         const res = await api.post('/auth/reset-password', { email, otp, newPassword });
         return res.data;
       } catch (err) {
-        return handleApiError(err, () => {
-          const savedEmail = localStorage.getItem('reset_email');
-          const savedOtp = localStorage.getItem('reset_otp');
-          
-          if (email !== savedEmail || otp !== savedOtp) {
-            throw new Error("Invalid email or OTP code.");
-          }
-          
-          // Modify password in registered users list
-          const registeredUsers = fallbackStore.get('registered_users', []);
-          const user = registeredUsers.find(u => u.email === email);
-          if (user) {
-            user.password = newPassword;
-            fallbackStore.set('registered_users', registeredUsers);
-          }
-          
-          localStorage.removeItem('reset_email');
-          localStorage.removeItem('reset_otp');
-          return { success: true, message: "Password reset successfully!" };
-        });
+        return handleApiError(err);
       }
     }
   },
@@ -401,9 +336,7 @@ const ApiService = {
         const res = await api.get('/bookings');
         return res.data;
       } catch (err) {
-        return handleApiError(err, () => {
-          return fallbackStore.get('bookings', []);
-        });
+        return handleApiError(err);
       }
     },
     create: async (booking) => {
@@ -411,13 +344,7 @@ const ApiService = {
         const res = await api.post('/bookings', booking);
         return res.data;
       } catch (err) {
-        return handleApiError(err, () => {
-          const bookings = fallbackStore.get('bookings', []);
-          const newBooking = { ...booking, id: 'BKG-' + String(bookings.length + 1).padStart(3, '0'), status: 'Confirmed' };
-          bookings.push(newBooking);
-          fallbackStore.set('bookings', bookings);
-          return { success: true, booking: newBooking, message: "Resource booked successfully!" };
-        });
+        return handleApiError(err);
       }
     },
     cancel: async (id) => {
@@ -425,16 +352,7 @@ const ApiService = {
         const res = await api.delete(`/bookings/${id}`);
         return res.data;
       } catch (err) {
-        return handleApiError(err, () => {
-          const bookings = fallbackStore.get('bookings', []);
-          const idx = bookings.findIndex(b => b.id === id);
-          if (idx !== -1) {
-            bookings[idx].status = 'Cancelled';
-            fallbackStore.set('bookings', bookings);
-            return { success: true, message: "Booking cancelled successfully!" };
-          }
-          throw new Error("Booking not found");
-        });
+        return handleApiError(err);
       }
     }
   },
@@ -572,7 +490,7 @@ const ApiService = {
         });
       }
     },
-    sendCustom: async (notifData) => {
+    create: async (notifData) => {
       try {
         const res = await api.post('/notifications', notifData);
         return res.data;
@@ -676,9 +594,7 @@ const ApiService = {
         const res = await api.get('/users');
         return res.data;
       } catch (err) {
-        return handleApiError(err, () => {
-          return fallbackStore.get('registered_users', []);
-        });
+        return handleApiError(err);
       }
     },
     updateRole: async (email, role, department, oldHeadEmail = null, oldHeadStatus = null, oldHeadDetails = null) => {

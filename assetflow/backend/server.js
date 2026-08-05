@@ -26,16 +26,7 @@ function authenticateToken(req, res, next) {
     return res.status(401).json({ message: 'Authentication token required.' });
   }
 
-  // Backwards compatibility with offline mock tokens
-  if (token.startsWith('fallback-mock-jwt-token-')) {
-    const role = token.replace('fallback-mock-jwt-token-', '');
-    req.user = {
-      email: 'mock-user@assetflow.com',
-      role: role === 'AssetManager' ? 'Asset Manager' : (role === 'DepartmentHead' ? 'Department Head' : role),
-      department: 'IT'
-    };
-    return next();
-  }
+  // Backwards compatibility for offline mock tokens has been removed.
 
   jwt.verify(token, JWT_SECRET, (err, user) => {
     if (err) {
@@ -61,7 +52,10 @@ db.initializeDatabase()
 // --- API ROUTES ---
 
 // 1. Authentication Endpoints
-app.post('/api/auth/signup', async (req, res) => {
+app.post('/api/auth/signup', authenticateToken, async (req, res) => {
+  if (req.user.role !== 'Admin') {
+    return res.status(403).json({ message: 'Access Denied: Only administrators can create new users.' });
+  }
   const { email, password, fullName, role, department } = req.body;
   try {
     const existing = await db.query('SELECT * FROM users WHERE email = ?', [email]);
@@ -81,17 +75,36 @@ app.post('/api/auth/signup', async (req, res) => {
 });
 
 app.post('/api/auth/login', async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password, role } = req.body;
   try {
-    const users = await db.query('SELECT * FROM users WHERE email = ?', [email]);
-    if (users.length === 0 || users[0].password !== password) {
-      return res.status(400).json({ message: 'Invalid email or password.' });
+    // 1. Verify role is selected
+    if (!role) {
+      return res.status(400).json({ message: 'Please select your role.' });
     }
 
-    const dbUser = users[0];
-    if (dbUser.status && dbUser.status !== 'Active') {
-      return res.status(403).json({ message: `Access Denied: This account is inactive (${dbUser.status}).` });
+    // 2. Verify if any users exist for the selected role
+    const roleUsers = await db.query('SELECT * FROM users WHERE role = ?', [role]);
+    if (roleUsers.length === 0) {
+      return res.status(404).json({ message: `No ${role} accounts have been registered yet. Please contact your Administrator.` });
     }
+
+    // 3. Verify if entered email belongs to a user with the selected role
+    const userWithEmailAndRole = roleUsers.find(u => u.email === email);
+    if (!userWithEmailAndRole) {
+      return res.status(404).json({ message: 'No account found with this email for the selected role.' });
+    }
+
+    // 4. Verify password
+    if (userWithEmailAndRole.password !== password) {
+      return res.status(401).json({ message: 'Incorrect password.' });
+    }
+
+    // 5. Verify account is active
+    if (userWithEmailAndRole.status && userWithEmailAndRole.status !== 'Active') {
+      return res.status(403).json({ message: 'Your account has been deactivated. Please contact your Administrator.' });
+    }
+
+    const dbUser = userWithEmailAndRole;
 
     const userPayload = {
       email: dbUser.email,
@@ -134,6 +147,19 @@ app.post('/api/auth/reset-password', async (req, res) => {
   try {
     await db.query('UPDATE users SET password = ? WHERE email = ?', [newPassword, email]);
     res.json({ success: true, message: 'Password updated successfully!' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// 1.5. User Management Endpoints
+app.get('/api/users', authenticateToken, async (req, res) => {
+  if (req.user.role !== 'Admin') {
+    return res.status(403).json({ message: 'Access Denied: Only administrators can view all users.' });
+  }
+  try {
+    const users = await db.query('SELECT email, fullName, role, department, avatar, isVerified, status, transitionDetails FROM users ORDER BY fullName ASC');
+    res.json(users);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -290,13 +316,25 @@ app.post('/api/allocations', authenticateToken, async (req, res) => {
       [newId, assetId, assetName, allocatedTo, date, 'Pending Approval', req.user.department || 'IT']
     );
 
-    // Notify Asset Managers
+    // Notify Admin
     const ntfId = 'NTF-' + Math.floor(100000 + Math.random() * 900000);
     const timeString = new Date().toISOString().replace('T', ' ').substring(0, 16);
     await db.query(
       'INSERT INTO notifications (id, title, message, type, date, `read`, targetRole, targetUserEmail) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [ntfId, 'New Allocation Request', `${allocatedTo} requested allocation for ${assetName}.`, 'info', timeString, false, 'Asset Manager', null]
+      [ntfId, 'New Allocation Request', `${allocatedTo} requested allocation for ${assetName}.`, 'info', timeString, false, 'Admin', null]
     );
+
+    // Audit Log
+    console.log(JSON.stringify({
+      event: 'ALLOCATION_REQUEST_CREATED',
+      requestId: newId,
+      createdBy: req.user.email,
+      createdByName: req.user.name,
+      createdAt: timeString,
+      assetId: assetId,
+      assetName: assetName,
+      allocatedTo: allocatedTo
+    }));
 
     res.status(201).json({ success: true, message: 'Allocation request created!' });
   } catch (err) {
@@ -305,6 +343,9 @@ app.post('/api/allocations', authenticateToken, async (req, res) => {
 });
 
 app.post('/api/allocations/:id/action', authenticateToken, async (req, res) => {
+  if (req.user.role !== 'Admin') {
+    return res.status(403).json({ message: 'Access Denied: Only Admins can approve or reject allocation requests.' });
+  }
   const { id } = req.params;
   const { status, assetId } = req.body; // 'Approved', 'Rejected', 'Returned', optional assetId
   try {
@@ -348,6 +389,19 @@ app.post('/api/allocations/:id/action', authenticateToken, async (req, res) => {
       [ntfId, `Asset Request ${status}`, `Your allocation request for "${displayAssetName}" was ${status.toLowerCase()}.`, status === 'Approved' ? 'success' : 'warning', timeString, false, null, targetEmail]
     );
 
+    // Audit Log
+    console.log(JSON.stringify({
+      event: `ALLOCATION_REQUEST_${status.toUpperCase()}`,
+      requestId: id,
+      actionBy: req.user.email,
+      actionByName: req.user.name,
+      actionAt: timeString,
+      status: status,
+      assetId: finalAssetId,
+      assetName: displayAssetName,
+      allocatedTo: allocs[0].allocatedTo
+    }));
+
     res.json({ success: true, message: `Allocation ${status.toLowerCase()} successfully!` });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -355,9 +409,14 @@ app.post('/api/allocations/:id/action', authenticateToken, async (req, res) => {
 });
 
 // 5. Booking Endpoints
-app.get('/api/bookings', async (req, res) => {
+app.get('/api/bookings', authenticateToken, async (req, res) => {
   try {
-    const bookings = await db.query('SELECT * FROM bookings');
+    const bookings = await db.query(`
+      SELECT b.* 
+      FROM bookings b
+      INNER JOIN users u ON b.bookedBy = u.fullName
+      INNER JOIN assets a ON b.resourceName = a.name
+    `);
     res.json(bookings);
   } catch (err) {
     res.status(500).json({ message: err.message });

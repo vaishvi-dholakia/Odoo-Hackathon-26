@@ -165,7 +165,7 @@ function setupEventListeners() {
       if (submitBtn) submitBtn.disabled = true;
 
       try {
-        await window.ApiService.notifications.sendCustom({
+        await window.ApiService.notifications.create({
           title,
           message,
           type,

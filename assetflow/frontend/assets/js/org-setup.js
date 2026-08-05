@@ -21,6 +21,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (card) card.style.display = 'block';
       await loadDeptHeads();
       await loadTransitionHistory();
+      await loadSystemUsers();
 
       setupDeptFormSubmit();
       setupAddHeadUserFormSubmit();
@@ -431,15 +432,36 @@ function setupAddHeadUserFormSubmit() {
   const form = document.getElementById('add-head-user-form');
   if (!form) return;
 
+  const roleSelect = document.getElementById('head-role');
+  const deptContainer = document.getElementById('department-container');
+  const deptSelect = document.getElementById('head-department');
+
+  if (roleSelect && deptContainer && deptSelect) {
+    roleSelect.addEventListener('change', (e) => {
+      if (e.target.value === 'Asset Manager') {
+        deptContainer.style.display = 'none';
+        deptSelect.removeAttribute('required');
+      } else {
+        deptContainer.style.display = 'block';
+        deptSelect.setAttribute('required', 'required');
+      }
+    });
+  }
+
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
 
     const fullName = document.getElementById('head-fullname').value.trim();
     const email = document.getElementById('head-email').value.trim();
     const password = document.getElementById('head-password').value;
-    const department = document.getElementById('head-department').value;
+    const role = document.getElementById('head-role').value;
+    let department = document.getElementById('head-department').value;
 
-    if (!fullName || !email || !password || !department) {
+    if (role === 'Asset Manager') {
+      department = 'Global';
+    }
+
+    if (!fullName || !email || !password || !role || !department) {
       Swal.fire('Validation Error', 'All fields are required.', 'warning');
       return;
     }
@@ -456,12 +478,14 @@ function setupAddHeadUserFormSubmit() {
         fullName,
         email,
         password,
-        role: 'Department Head',
+        role: role,
         department
       });
 
-      // 2. Update role and assign as Head
-      await window.ApiService.users.updateRole(email, 'Department Head', department);
+      // 2. Update role and assign as Head (Only for Department Heads)
+      if (role === 'Department Head') {
+        await window.ApiService.users.updateRole(email, 'Department Head', department);
+      }
 
       // Hide Modal
       const modalEl = document.getElementById('addHeadModal');
@@ -471,15 +495,18 @@ function setupAddHeadUserFormSubmit() {
       form.reset();
 
       Swal.fire({
-        title: 'Department Head Created!',
-        text: `${fullName} has been registered and assigned as Head of ${department}.`,
+        title: 'User Registered!',
+        text: `${fullName} has been registered as ${role} for ${department}.`,
         icon: 'success',
         confirmButtonColor: '#2563EB'
       });
 
-      await loadDeptHeads();
+      if (role === 'Department Head') {
+        await loadDeptHeads();
+      }
+      await loadSystemUsers();
     } catch (err) {
-      Swal.fire('Error', err.message || 'Failed to create department head', 'error');
+      Swal.fire('Error', err.message || 'Failed to create user', 'error');
     } finally {
       if (spinner) spinner.classList.add('d-none');
       if (submitBtn) submitBtn.disabled = false;
@@ -539,5 +566,53 @@ async function loadTransitionHistory() {
     card.style.display = 'block';
   } catch (err) {
     console.error("Failed to load transition history:", err);
+  }
+}
+
+async function loadSystemUsers() {
+  const container = document.getElementById('system-users-table-body');
+  const card = document.getElementById('system-users-card');
+  if (!container || !card) return;
+
+  try {
+    const users = await window.ApiService.users.list();
+    
+    if (!users || users.length === 0) {
+      container.innerHTML = `
+        <tr>
+          <td colspan="5" class="text-center py-3 text-muted">No registered users found.</td>
+        </tr>
+      `;
+      card.style.display = 'block';
+      return;
+    }
+
+    let html = '';
+    users.forEach(u => {
+      let roleBadge = '';
+      if (u.role === 'Admin') roleBadge = '<span class="badge bg-primary-subtle text-primary rounded-pill px-2.5 py-1 fw-medium"><i class="fa-solid fa-crown me-1"></i>Admin</span>';
+      else if (u.role === 'Asset Manager') roleBadge = '<span class="badge bg-purple-subtle text-purple rounded-pill px-2.5 py-1 fw-medium" style="background-color:#F3E8FF; color:#7E22CE;"><i class="fa-solid fa-boxes-stacked me-1"></i>Asset Manager</span>';
+      else if (u.role === 'Department Head') roleBadge = '<span class="badge bg-info-subtle text-info rounded-pill px-2.5 py-1 fw-medium"><i class="fa-solid fa-user-tie me-1"></i>Dept Head</span>';
+      else roleBadge = '<span class="badge bg-secondary-subtle text-secondary rounded-pill px-2.5 py-1 fw-medium"><i class="fa-solid fa-user me-1"></i>Employee</span>';
+
+      let statusBadge = '';
+      if (u.status === 'Active') statusBadge = '<span class="text-success small fw-bold"><i class="fa-solid fa-circle-check me-1"></i>Active</span>';
+      else statusBadge = `<span class="text-muted small fw-bold">${escapeHtml(u.status)}</span>`;
+
+      html += `
+        <tr>
+          <td><strong>${escapeHtml(u.fullName || u.name)}</strong></td>
+          <td>${escapeHtml(u.email)}</td>
+          <td>${roleBadge}</td>
+          <td><span class="text-muted small">${escapeHtml(u.department || 'N/A')}</span></td>
+          <td>${statusBadge}</td>
+        </tr>
+      `;
+    });
+
+    container.innerHTML = html;
+    card.style.display = 'block';
+  } catch (err) {
+    console.error("Failed to load system users directory:", err);
   }
 }

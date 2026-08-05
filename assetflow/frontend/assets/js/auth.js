@@ -6,7 +6,6 @@
 document.addEventListener('DOMContentLoaded', () => {
   setupPasswordToggles();
   setupLoginForm();
-  setupSignupForm();
   setupOtpVerificationForm();
   setupForgotPasswordForm();
   setupResetPasswordForm();
@@ -76,7 +75,14 @@ function setupLoginForm() {
 
     const email = document.getElementById('email').value.trim();
     const password = document.getElementById('password').value;
+    const roleSelect = document.getElementById('role-select');
+    const role = roleSelect ? roleSelect.value : null;
     let isValid = true;
+
+    if (!role) {
+      Swal.fire('Error', 'Please select a role before signing in.', 'warning');
+      isValid = false;
+    }
 
     if (!email) {
       showError('email', 'Email address is required.');
@@ -100,7 +106,7 @@ function setupLoginForm() {
     if (submitBtn) submitBtn.disabled = true;
 
     try {
-      const response = await ApiService.auth.login({ email, password });
+      const response = await ApiService.auth.login({ email, password, role });
       
       const Toast = Swal.mixin({
         toast: true,
@@ -168,106 +174,6 @@ function setupLoginForm() {
   });
 }
 
-// 2. SIGNUP FORM HANDLER
-function setupSignupForm() {
-  const form = document.getElementById('signup-form');
-  if (!form) return;
-
-  // Load departments dynamically from MySQL database
-  const loadDepts = async () => {
-    const select = document.getElementById('department');
-    if (!select) return;
-    try {
-      const depts = await window.ApiService.departments.list();
-      if (depts.length === 0) {
-        select.innerHTML = '<option value="">No departments available</option>';
-      } else {
-        select.innerHTML = '<option value="">Select department...</option>' + depts.map(d => {
-          const name = typeof d === 'string' ? d : d.name;
-          return `<option value="${name.replace(/"/g, '&quot;')}">${name}</option>`;
-        }).join('');
-      }
-    } catch (err) {
-      console.error("Failed to load departments:", err);
-    }
-  };
-  loadDepts();
-
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    clearErrors();
-
-    const fullName = document.getElementById('fullname').value.trim();
-    const email = document.getElementById('email').value.trim();
-    const password = document.getElementById('password').value;
-    const confirmPassword = document.getElementById('confirm-password').value;
-    const role = 'Employee';
-    const department = document.getElementById('department').value || '';
-
-    let isValid = true;
-
-    if (!fullName) {
-      showError('fullname', 'Full Name is required.');
-      isValid = false;
-    }
-
-    if (!email) {
-      showError('email', 'Email address is required.');
-      isValid = false;
-    } else if (!emailRegex.test(email)) {
-      showError('email', 'Please enter a valid email address.');
-      isValid = false;
-    }
-
-    if (!password) {
-      showError('password', 'Password is required.');
-      isValid = false;
-    } else if (!strongPasswordRegex.test(password)) {
-      showError('password', 'Password must contain at least 8 characters, including 1 uppercase letter, 1 lowercase letter, 1 number, and 1 special character.');
-      isValid = false;
-    }
-
-    if (!confirmPassword) {
-      showError('confirm-password', 'Confirm password is required.');
-      isValid = false;
-    } else if (password !== confirmPassword) {
-      showError('confirm-password', 'Passwords do not match.');
-      isValid = false;
-    }
-
-    if (!isValid) return;
-
-    // Show loading
-    const spinner = document.getElementById('signup-spinner');
-    const submitBtn = document.getElementById('btn-signup-submit');
-    if (spinner) spinner.classList.remove('d-none');
-    if (submitBtn) submitBtn.disabled = true;
-
-    try {
-      const response = await ApiService.auth.signup({ fullName, email, password, role, department });
-      
-      Swal.fire({
-        title: 'Account Created!',
-        text: 'Your enterprise account has been created successfully. Redirecting to login.',
-        icon: 'success',
-        confirmButtonColor: '#2563EB'
-      }).then(() => {
-        window.location.href = 'login.html';
-      });
-    } catch (err) {
-      console.error(err);
-      Swal.fire({
-        title: 'Registration Failed',
-        text: err.message,
-        icon: 'error',
-        confirmButtonColor: '#2563EB'
-      });
-    } finally {
-      if (spinner) spinner.classList.add('d-none');
-      if (submitBtn) submitBtn.disabled = false;
-    }
-  });
-}
 
 // 3. OTP VERIFICATION FORM HANDLER
 function setupOtpVerificationForm() {
@@ -290,30 +196,7 @@ function setupOtpVerificationForm() {
   // Start Rate Limit Countdown Timer on load
   startTimer();
 
-  // Show a demo OTP hint if offline/sandbox mode is active
-  const showDemoOtpHint = () => {
-    const tempUsers = JSON.parse(localStorage.getItem('af_fb_temp_users') || '[]');
-    const user = tempUsers.find(u => u.email === email);
-    if (user && user.otp) {
-      let hintDiv = document.getElementById('demo-otp-hint');
-      if (!hintDiv) {
-        hintDiv = document.createElement('div');
-        hintDiv.id = 'demo-otp-hint';
-        hintDiv.className = 'alert alert-info mt-3 text-center small py-2';
-        hintDiv.style.cursor = 'pointer';
-        form.appendChild(hintDiv);
-      }
-      hintDiv.innerHTML = `<strong>Demo Mode Hint:</strong> Your OTP code is <strong>${user.otp}</strong> (Click to auto-fill)`;
-      hintDiv.onclick = () => {
-        const otpDigits = user.otp.split('');
-        digits.forEach((digit, idx) => {
-          digit.value = otpDigits[idx] || '';
-        });
-        checkOtpComplete();
-      };
-    }
-  };
-  showDemoOtpHint();
+
 
   function startTimer() {
     countdown = 60;
@@ -377,7 +260,6 @@ function setupOtpVerificationForm() {
           confirmButtonColor: '#2563EB'
         });
         startTimer();
-        showDemoOtpHint();
       } catch (err) {
         Swal.fire('Error', err.message, 'error');
       }
@@ -489,18 +371,7 @@ function setupResetPasswordForm() {
     if (emailInput) emailInput.value = savedEmail;
   }
 
-  const savedOtp = localStorage.getItem('reset_otp');
-  if (savedOtp) {
-    const hintDiv = document.createElement('div');
-    hintDiv.className = 'alert alert-info mt-3 text-center small py-2';
-    hintDiv.innerHTML = `<strong>Demo Mode Hint:</strong> Your password reset OTP is <strong>${savedOtp}</strong> (Click to auto-fill)`;
-    hintDiv.style.cursor = 'pointer';
-    hintDiv.addEventListener('click', () => {
-      const otpInput = document.getElementById('otp');
-      if (otpInput) otpInput.value = savedOtp;
-    });
-    form.appendChild(hintDiv);
-  }
+
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();

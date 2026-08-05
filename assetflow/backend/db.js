@@ -43,6 +43,7 @@ async function initializeDatabase() {
   await query('DROP TABLE IF EXISTS audits');
   await query('DROP TABLE IF EXISTS maintenance');
   await query('DROP TABLE IF EXISTS allocations');
+  await query('DROP TABLE IF EXISTS bookings');
   await query('DROP TABLE IF EXISTS assets');
   await query('DROP TABLE IF EXISTS users');
   await query('DROP TABLE IF EXISTS organization');

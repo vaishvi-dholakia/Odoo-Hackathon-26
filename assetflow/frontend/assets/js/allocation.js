@@ -135,7 +135,7 @@ function renderAllocationsTable(allocations) {
 
   let html = '';
   const role = window.RbacService.getCurrentUserRole();
-  const canApprove = (role === 'Admin' || role === 'Asset Manager' || role === 'AssetManager' || role === 'Department Head' || role === 'DepartmentHead');
+  const canApprove = (role === 'Admin');
 
   allocations.forEach(alloc => {
     let statusClass = 'bg-warning text-dark';
@@ -293,12 +293,27 @@ async function setupEventListeners() {
           date: new Date().toISOString().split('T')[0]
         });
 
-        // Create compliance notification
-        await window.ApiService.notifications.create({
-          title: `Transfer Request: ${asset.id}`,
-          message: `Transfer requested for ${asset.name} from ${asset.owner} to ${transferTo}. Reason: ${reason}`,
-          type: 'Approval'
-        });
+        // Attempt to create compliance notification separately so it doesn't fail the transfer
+        try {
+          await window.ApiService.notifications.create({
+            title: `Transfer Request: ${asset.id}`,
+            message: `Transfer requested for ${asset.name} from ${asset.owner} to ${transferTo}. Reason: ${reason}`,
+            type: 'Approval'
+          });
+        } catch (ntfErr) {
+          console.error("Notification Service Error:", ntfErr);
+          const Toast = Swal.mixin({
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 3500,
+            timerProgressBar: true,
+          });
+          Toast.fire({
+            icon: 'warning',
+            title: 'Notification service is temporarily unavailable.'
+          });
+        }
 
         Swal.fire({
           title: 'Transfer Submitted!',
@@ -314,7 +329,8 @@ async function setupEventListeners() {
         await initializeWorkspace();
         handleAssetSelection(assetId);
       } catch (err) {
-        Swal.fire('Error', err.message, 'error');
+        console.error("Transfer Request Error:", err);
+        Swal.fire('Error', 'Unable to submit the transfer request. Please try again.', 'error');
       } finally {
         window.AssetFlowLoader.hide();
       }
@@ -365,7 +381,7 @@ async function setupEventListeners() {
   // Approval/Rejection Actions
   $('#allocations-table').on('click', '.btn-action', async function() {
     const role = window.RbacService.getCurrentUserRole();
-    const canApprove = (role === 'Admin' || role === 'Asset Manager' || role === 'AssetManager' || role === 'Department Head' || role === 'DepartmentHead');
+    const canApprove = (role === 'Admin');
     if (!canApprove) {
       Swal.fire('Access Denied', 'You do not have permission to approve or reject allocation requests.', 'error');
       return;

@@ -26,7 +26,7 @@
         <p class="text-muted">Sign in to your enterprise workspace</p>
       </div>
 
-      <form id="login-form" novalidate>
+      <form id="login-form" autocomplete="off" novalidate>
         <!-- Role Selection -->
         <div class="mb-3">
           <label for="role-select" class="form-label-custom">Select Role</label>
@@ -48,7 +48,7 @@
             <label for="email" class="form-label-custom">Email Address</label>
             <div class="input-group">
               <span class="input-group-text bg-white border-end-0" style="border-radius: var(--border-radius-sm) 0 0 var(--border-radius-sm); border: 1px solid var(--border-color);"><i class="fa-solid fa-envelope text-muted"></i></span>
-              <input type="email" id="email" class="form-control form-control-custom border-start-0 ps-1" placeholder="name@company.com" required style="border-radius: 0 var(--border-radius-sm) var(--border-radius-sm) 0;">
+              <input type="email" id="email" class="form-control form-control-custom border-start-0 ps-1" placeholder="name@company.com" autocomplete="off" required style="border-radius: 0 var(--border-radius-sm) var(--border-radius-sm) 0;">
             </div>
             <div class="invalid-feedback d-block mt-1" id="email-error"></div>
           </div>
@@ -61,7 +61,7 @@
             </div>
             <div class="input-group">
               <span class="input-group-text bg-white border-end-0" style="border-radius: var(--border-radius-sm) 0 0 var(--border-radius-sm); border: 1px solid var(--border-color);"><i class="fa-solid fa-lock text-muted"></i></span>
-              <input type="password" id="password" class="form-control form-control-custom border-start-0 border-end-0 ps-1" placeholder="••••••••" required style="border-radius: 0;">
+              <input type="password" id="password" class="form-control form-control-custom border-start-0 border-end-0 ps-1" placeholder="••••••••" autocomplete="off" required style="border-radius: 0;">
               <button type="button" class="btn btn-outline-secondary border-start-0 bg-white" id="password-toggle" style="border-radius: 0 var(--border-radius-sm) var(--border-radius-sm) 0; border: 1px solid var(--border-color);"><i class="fa-solid fa-eye text-muted"></i></button>
             </div>
             <div class="invalid-feedback d-block mt-1" id="password-error"></div>
@@ -81,11 +81,8 @@
             <span class="spinner-border spinner-border-sm ms-2 d-none" id="login-spinner" role="status" aria-hidden="true"></span>
           </button>
         </div>
-
-        <div class="text-center">
-          <span class="text-muted small">Don't have an account? <a href="signup.html" class="text-primary text-decoration-none fw-semibold">Sign Up</a></span>
-        </div>
       </form>
+
     </div>
   </div>
 

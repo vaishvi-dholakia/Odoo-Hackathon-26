@@ -154,9 +154,9 @@
             <!-- Department Head Assignments Card -->
             <div class="card-custom mt-4 shadow-sm" id="dept-heads-assignment-card" style="display: none;">
               <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-3 flex-wrap gap-2">
-                <h5 class="fw-bold mb-0"><i class="fa-solid fa-user-shield me-2 text-primary"></i>Department Head Assignments</h5>
+                <h5 class="fw-bold mb-0"><i class="fa-solid fa-users me-2 text-primary"></i>User Management & Department Heads</h5>
                 <button class="btn btn-primary-custom text-white btn-sm" data-bs-toggle="modal" data-bs-target="#addHeadModal">
-                  <i class="fa-solid fa-user-plus me-1"></i>Add New Department Head
+                  <i class="fa-solid fa-user-plus me-1"></i>Register New User
                 </button>
               </div>
               <p class="text-muted small mb-4">Assign exactly one Department Head for each department. Reassigning a department's head will automatically demote the old head to an Employee role.</p>
@@ -182,7 +182,7 @@
               <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content border-0 shadow">
                   <div class="modal-header border-bottom">
-                    <h5 class="modal-title fw-bold" id="addHeadModalLabel"><i class="fa-solid fa-user-plus me-2 text-primary"></i>Register Department Head</h5>
+                    <h5 class="modal-title fw-bold" id="addHeadModalLabel"><i class="fa-solid fa-user-plus me-2 text-primary"></i>Register New User</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                   </div>
                   <form id="add-head-user-form">
@@ -200,6 +200,14 @@
                         <input type="password" id="head-password" class="form-control form-control-custom" placeholder="••••••••" required>
                       </div>
                       <div class="mb-3">
+                        <label for="head-role" class="form-label-custom">Role <span class="text-danger">*</span></label>
+                        <select id="head-role" class="form-select form-control-custom" required>
+                          <option value="Department Head">Department Head</option>
+                          <option value="Asset Manager">Asset Manager</option>
+                          <option value="Employee">Employee</option>
+                        </select>
+                      </div>
+                      <div class="mb-3" id="department-container">
                         <label for="head-department" class="form-label-custom">Assign Department <span class="text-danger">*</span></label>
                         <select id="head-department" class="form-select form-control-custom" required>
                           <!-- Loaded dynamically -->
@@ -209,7 +217,7 @@
                     <div class="modal-footer border-top">
                       <button type="button" class="btn btn-secondary-custom" data-bs-dismiss="modal">Cancel</button>
                       <button type="submit" class="btn btn-primary-custom text-white" id="btn-save-head-user">
-                        <span>Create & Assign Head</span>
+                        <span>Create User</span>
                         <span class="spinner-border spinner-border-sm ms-2 d-none" id="head-spinner" role="status" aria-hidden="true"></span>
                       </button>
                     </div>
@@ -234,6 +242,28 @@
                     </tr>
                   </thead>
                   <tbody id="dept-transitions-table-body">
+                    <!-- Dynamically populated -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- System Users Directory Card -->
+            <div class="card-custom mt-4 shadow-sm" id="system-users-card" style="display: none;">
+              <h5 class="fw-bold mb-3 border-bottom pb-3"><i class="fa-solid fa-address-book me-2 text-primary"></i>System Users Directory</h5>
+              <p class="text-muted small mb-4">A complete directory of all registered users in the system, including Asset Managers and Employees.</p>
+              <div class="table-custom-wrapper">
+                <table class="table-custom mb-0">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Email</th>
+                      <th>Role</th>
+                      <th>Department</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody id="system-users-table-body">
                     <!-- Dynamically populated -->
                   </tbody>
                 </table>
