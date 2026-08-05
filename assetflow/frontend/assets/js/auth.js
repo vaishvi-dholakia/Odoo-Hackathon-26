@@ -69,15 +69,6 @@ function setupLoginForm() {
   const form = document.getElementById('login-form');
   if (!form) return;
 
-  window.fillCreds = (email) => {
-    const emailInput = document.getElementById('email');
-    const passInput = document.getElementById('password');
-    if (emailInput && passInput) {
-      emailInput.value = email;
-      passInput.value = 'Password123!';
-      form.dispatchEvent(new Event('submit'));
-    }
-  };
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();

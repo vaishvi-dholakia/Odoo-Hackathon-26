@@ -27,62 +27,60 @@
       </div>
 
       <form id="login-form" novalidate>
-        <!-- Email Input -->
+        <!-- Role Selection -->
         <div class="mb-3">
-          <label for="email" class="form-label-custom">Email Address</label>
+          <label for="role-select" class="form-label-custom">Select Role</label>
           <div class="input-group">
-            <span class="input-group-text bg-white border-end-0" style="border-radius: var(--border-radius-sm) 0 0 var(--border-radius-sm); border: 1px solid var(--border-color);"><i class="fa-solid fa-envelope text-muted"></i></span>
-            <input type="email" id="email" class="form-control form-control-custom border-start-0 ps-1" placeholder="name@company.com" required style="border-radius: 0 var(--border-radius-sm) var(--border-radius-sm) 0;">
-          </div>
-          <div class="invalid-feedback d-block mt-1" id="email-error"></div>
-        </div>
-
-        <!-- Password Input -->
-        <div class="mb-3">
-          <div class="d-flex justify-content-between">
-            <label for="password" class="form-label-custom">Password</label>
-            <a href="forgot-password.html" class="small text-primary text-decoration-none">Forgot Password?</a>
-          </div>
-          <div class="input-group">
-            <span class="input-group-text bg-white border-end-0" style="border-radius: var(--border-radius-sm) 0 0 var(--border-radius-sm); border: 1px solid var(--border-color);"><i class="fa-solid fa-lock text-muted"></i></span>
-            <input type="password" id="password" class="form-control form-control-custom border-start-0 border-end-0 ps-1" placeholder="••••••••" required style="border-radius: 0;">
-            <button type="button" class="btn btn-outline-secondary border-start-0 bg-white" id="password-toggle" style="border-radius: 0 var(--border-radius-sm) var(--border-radius-sm) 0; border: 1px solid var(--border-color);"><i class="fa-solid fa-eye text-muted"></i></button>
-          </div>
-          <div class="invalid-feedback d-block mt-1" id="password-error"></div>
-        </div>
-
-        <!-- Remember Me Checkbox -->
-        <div class="mb-4 d-flex justify-content-between align-items-center">
-          <div class="form-check">
-            <input type="checkbox" class="form-check-input" id="remember-me">
-            <label class="form-check-label text-muted small" for="remember-me">Remember this browser</label>
+            <span class="input-group-text bg-white border-end-0" style="border-radius: var(--border-radius-sm) 0 0 var(--border-radius-sm); border: 1px solid var(--border-color);"><i class="fa-solid fa-user-tie text-muted"></i></span>
+            <select class="form-select form-control-custom border-start-0 ps-1" id="role-select" required style="border-radius: 0 var(--border-radius-sm) var(--border-radius-sm) 0; cursor: pointer;">
+              <option value="" selected disabled>Choose your role...</option>
+              <option value="Admin">Admin</option>
+              <option value="Asset Manager">Asset Manager</option>
+              <option value="Department Head">Department Head</option>
+              <option value="Employee">Employee</option>
+            </select>
           </div>
         </div>
 
-        <!-- Demo Accounts Dropdown -->
-        <div class="mb-3">
-          <div class="dropdown">
-            <button class="btn btn-outline-secondary btn-sm w-100 dropdown-toggle d-flex align-items-center justify-content-between" type="button" id="demoAccountsDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-              <span><i class="fa-solid fa-user-shield me-2 text-muted"></i>Quick Demo Accounts (India)</span>
-            </button>
-            <ul class="dropdown-menu w-100 shadow-sm" aria-labelledby="demoAccountsDropdown" style="border-color: var(--border-color);">
-              <li><a class="dropdown-item py-2" href="javascript:void(0)" onclick="fillCreds('admin@assetflow.com')"><strong>Admin:</strong> Rahul Sharma (All Access)</a></li>
-              <li><a class="dropdown-item py-2" href="javascript:void(0)" onclick="fillCreds('manager@assetflow.com')"><strong>Asset Manager:</strong> Amit Patel (Inventory & Repairs)</a></li>
-              <li><hr class="dropdown-divider"></li>
-              <li><a class="dropdown-item py-2" href="javascript:void(0)" onclick="fillCreds('it-head@assetflow.com')"><strong>IT Head:</strong> Priya Iyer (IT Scoped)</a></li>
-              <li><a class="dropdown-item py-2" href="javascript:void(0)" onclick="fillCreds('eng-head@assetflow.com')"><strong>Engineering Head:</strong> Vikram Malhotra (Eng Scoped)</a></li>
-              <li><a class="dropdown-item py-2" href="javascript:void(0)" onclick="fillCreds('mkt-head@assetflow.com')"><strong>Marketing Head:</strong> Neha Sharma (Mkt Scoped)</a></li>
-              <li><hr class="dropdown-divider"></li>
-              <li><a class="dropdown-item py-2" href="javascript:void(0)" onclick="fillCreds('employee@assetflow.com')"><strong>IT Employee:</strong> Arjun Nair (Request & Book)</a></li>
-            </ul>
+        <div id="credentials-section">
+          <!-- Email Input -->
+          <div class="mb-3">
+            <label for="email" class="form-label-custom">Email Address</label>
+            <div class="input-group">
+              <span class="input-group-text bg-white border-end-0" style="border-radius: var(--border-radius-sm) 0 0 var(--border-radius-sm); border: 1px solid var(--border-color);"><i class="fa-solid fa-envelope text-muted"></i></span>
+              <input type="email" id="email" class="form-control form-control-custom border-start-0 ps-1" placeholder="name@company.com" required style="border-radius: 0 var(--border-radius-sm) var(--border-radius-sm) 0;">
+            </div>
+            <div class="invalid-feedback d-block mt-1" id="email-error"></div>
           </div>
-        </div>
 
-        <!-- Submit Button -->
-        <button type="submit" class="btn btn-primary-custom w-100 py-2.5 text-white mb-3 d-flex justify-content-center align-items-center" id="btn-login-submit">
-          <span>Sign In</span>
-          <span class="spinner-border spinner-border-sm ms-2 d-none" id="login-spinner" role="status" aria-hidden="true"></span>
-        </button>
+          <!-- Password Input -->
+          <div class="mb-3">
+            <div class="d-flex justify-content-between">
+              <label for="password" class="form-label-custom">Password</label>
+              <a href="forgot-password.html" class="small text-primary text-decoration-none">Forgot Password?</a>
+            </div>
+            <div class="input-group">
+              <span class="input-group-text bg-white border-end-0" style="border-radius: var(--border-radius-sm) 0 0 var(--border-radius-sm); border: 1px solid var(--border-color);"><i class="fa-solid fa-lock text-muted"></i></span>
+              <input type="password" id="password" class="form-control form-control-custom border-start-0 border-end-0 ps-1" placeholder="••••••••" required style="border-radius: 0;">
+              <button type="button" class="btn btn-outline-secondary border-start-0 bg-white" id="password-toggle" style="border-radius: 0 var(--border-radius-sm) var(--border-radius-sm) 0; border: 1px solid var(--border-color);"><i class="fa-solid fa-eye text-muted"></i></button>
+            </div>
+            <div class="invalid-feedback d-block mt-1" id="password-error"></div>
+          </div>
+
+          <!-- Remember Me Checkbox -->
+          <div class="mb-4 d-flex justify-content-between align-items-center">
+            <div class="form-check">
+              <input type="checkbox" class="form-check-input" id="remember-me">
+              <label class="form-check-label text-muted small" for="remember-me">Remember this browser</label>
+            </div>
+          </div>
+
+          <!-- Submit Button -->
+          <button type="submit" class="btn btn-primary-custom w-100 py-2.5 text-white mb-3 d-flex justify-content-center align-items-center" id="btn-login-submit">
+            <span>Sign In</span>
+            <span class="spinner-border spinner-border-sm ms-2 d-none" id="login-spinner" role="status" aria-hidden="true"></span>
+          </button>
+        </div>
 
         <div class="text-center">
           <span class="text-muted small">Don't have an account? <a href="signup.html" class="text-primary text-decoration-none fw-semibold">Sign Up</a></span>
