@@ -320,6 +320,12 @@ function setupGlobalInteractions() {
   if (savedUser) {
     try {
       const user = JSON.parse(savedUser);
+      // Strip cached default unsplash image
+      if (user.avatar && user.avatar.includes('unsplash.com')) {
+        user.avatar = '';
+        localStorage.setItem('user', JSON.stringify(user));
+      }
+
       const nameElements = ['sidebar-username', 'navbar-username'];
       const emailElements = ['navbar-email'];
       

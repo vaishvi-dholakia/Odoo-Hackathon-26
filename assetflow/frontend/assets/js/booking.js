@@ -327,91 +327,14 @@ function setupEventListeners() {
       
       if (val === 'ConfRoomB2') {
         timelineGrid.innerHTML = `
-          <!-- 9:00 Slot (Booked) -->
-          <div class="d-flex align-items-center gap-3">
-            <div class="fw-bold text-muted small" style="width: 55px;">9:00 AM</div>
-            <div class="flex-grow-1 p-2.5 rounded-3 text-white fs-7" style="background-color: var(--primary-color); border: 1px solid rgba(255,255,255,0.1);">
-              <div class="fw-semibold">Booked - Procurement Team</div>
-              <div class="small opacity-75">9:00 AM to 10:00 AM</div>
-            </div>
-          </div>
-
-          <!-- 10:00 Slot (Available) -->
-          <div class="d-flex align-items-center gap-3">
-            <div class="fw-bold text-muted small" style="width: 55px;">10:00 AM</div>
-            <div class="flex-grow-1 p-2.5 rounded-3 border border-dashed border-secondary-subtle text-muted fs-7 text-center">
-              Available slot
-            </div>
-          </div>
-
-          <!-- 11:00 Slot (Conflict indicator) -->
-          <div class="d-flex align-items-center gap-3">
-            <div class="fw-bold text-muted small" style="width: 55px;">11:00 AM</div>
-            <div class="flex-grow-1 p-2.5 rounded-3 fs-7" style="border: 2px dashed #EF4444; background-color: rgba(239, 68, 68, 0.05); color: #EF4444;">
-              <div class="fw-bold"><i class="fa-solid fa-circle-xmark me-1"></i>Requested 9:30 to 10:30 - conflict</div>
-              <div class="small">Slot is unavailable for booking</div>
-            </div>
-          </div>
-
-          <!-- 12:00 Slot (Available) -->
-          <div class="d-flex align-items-center gap-3">
-            <div class="fw-bold text-muted small" style="width: 55px;">12:00 PM</div>
-            <div class="flex-grow-1 p-2.5 rounded-3 border border-dashed border-secondary-subtle text-muted fs-7 text-center">
-              Available slot
-            </div>
-          </div>
-
-          <!-- 1:00 Slot (Available) -->
-          <div class="d-flex align-items-center gap-3">
-            <div class="fw-bold text-muted small" style="width: 55px;">1:00 PM</div>
-            <div class="flex-grow-1 p-2.5 rounded-3 border border-dashed border-secondary-subtle text-muted fs-7 text-center">
-              Available slot
-            </div>
+          <div class="p-3 text-center text-muted small border rounded-3 border-dashed border-secondary-subtle">
+            No bookings scheduled for the selected resource today.
           </div>
         `;
       } else {
-        // Company EV Tesla-01
         timelineGrid.innerHTML = `
-          <!-- 9:00 Slot (Available) -->
-          <div class="d-flex align-items-center gap-3">
-            <div class="fw-bold text-muted small" style="width: 55px;">9:00 AM</div>
-            <div class="flex-grow-1 p-2.5 rounded-3 border border-dashed border-secondary-subtle text-muted fs-7 text-center">
-              Available slot
-            </div>
-          </div>
-
-          <!-- 10:00 Slot (Booked) -->
-          <div class="d-flex align-items-center gap-3">
-            <div class="fw-bold text-muted small" style="width: 55px;">10:00 AM</div>
-            <div class="flex-grow-1 p-2.5 rounded-3 text-white fs-7" style="background-color: var(--primary-color); border: 1px solid rgba(255,255,255,0.1);">
-              <div class="fw-semibold">Booked - Executive CEO Travel</div>
-              <div class="small opacity-75">10:00 AM to 11:00 AM</div>
-            </div>
-          </div>
-
-          <!-- 11:00 Slot (Available) -->
-          <div class="d-flex align-items-center gap-3">
-            <div class="fw-bold text-muted small" style="width: 55px;">11:00 AM</div>
-            <div class="flex-grow-1 p-2.5 rounded-3 border border-dashed border-secondary-subtle text-muted fs-7 text-center">
-              Available slot
-            </div>
-          </div>
-
-          <!-- 12:00 Slot (Booked) -->
-          <div class="d-flex align-items-center gap-3">
-            <div class="fw-bold text-muted small" style="width: 55px;">12:00 PM</div>
-            <div class="flex-grow-1 p-2.5 rounded-3 text-white fs-7" style="background-color: #F59E0B; border: 1px solid rgba(255,255,255,0.1);">
-              <div class="fw-semibold">Booked - Logistics Delivery</div>
-              <div class="small opacity-75">12:00 PM to 2:00 PM</div>
-            </div>
-          </div>
-
-          <!-- 1:00 Slot (Booked - continued) -->
-          <div class="d-flex align-items-center gap-3">
-            <div class="fw-bold text-muted small" style="width: 55px;">1:00 PM</div>
-            <div class="flex-grow-1 p-2.5 rounded-3 text-white fs-7 opacity-75" style="background-color: #F59E0B; border: 1px solid rgba(255,255,255,0.1);">
-              <div class="fw-semibold">Booked - Logistics Delivery (cont.)</div>
-            </div>
+          <div class="p-3 text-center text-muted small border rounded-3 border-dashed border-secondary-subtle">
+            No bookings scheduled for the selected resource today.
           </div>
         `;
       }

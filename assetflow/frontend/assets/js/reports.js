@@ -38,10 +38,10 @@ async function renderMockupWidgets() {
   chartUtilization = new Chart(ctxUtil, {
     type: 'bar',
     data: {
-      labels: ['Engineering', 'IT Dept', 'Design', 'Facilities', 'Procurement'],
+      labels: [],
       datasets: [{
         label: 'Allocated Assets',
-        data: [12, 18, 8, 5, 6],
+        data: [],
         backgroundColor: '#2563EB',
         borderRadius: 6
       }]
@@ -63,10 +63,10 @@ async function renderMockupWidgets() {
   chartMaintFreq = new Chart(ctxFreq, {
     type: 'line',
     data: {
-      labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'],
+      labels: [],
       datasets: [{
         label: 'Tasks Logged',
-        data: [2, 4, 1, 5, 3, 6, 8],
+        data: [],
         borderColor: '#EF4444',
         backgroundColor: 'rgba(239, 68, 68, 0.1)',
         tension: 0.3,
@@ -87,83 +87,17 @@ async function renderMockupWidgets() {
   // 3. Lists
   const listMostUsed = document.getElementById('list-most-used');
   if (listMostUsed) {
-    listMostUsed.innerHTML = `
-      <div class="d-flex justify-content-between align-items-center p-2 rounded-2 border border-secondary-subtle bg-body">
-        <div>
-          <div class="fw-semibold fs-7" style="color: var(--text-color);">Dell laptop (AF-0114)</div>
-          <small class="text-muted">Engineering</small>
-        </div>
-        <span class="badge bg-primary-subtle text-primary rounded-pill">12 allocations</span>
-      </div>
-      <div class="d-flex justify-content-between align-items-center p-2 rounded-2 border border-secondary-subtle bg-body">
-        <div>
-          <div class="fw-semibold fs-7" style="color: var(--text-color);">MacBook Pro 16" (AST-001)</div>
-          <small class="text-muted">Design</small>
-        </div>
-        <span class="badge bg-primary-subtle text-primary rounded-pill">8 allocations</span>
-      </div>
-      <div class="d-flex justify-content-between align-items-center p-2 rounded-2 border border-secondary-subtle bg-body">
-        <div>
-          <div class="fw-semibold fs-7" style="color: var(--text-color);">Dell Monitor 32" (AST-002)</div>
-          <small class="text-muted">IT Dept</small>
-        </div>
-        <span class="badge bg-primary-subtle text-primary rounded-pill">5 allocations</span>
-      </div>
-    `;
+    listMostUsed.innerHTML = `<div class="p-2 text-center text-muted small border rounded">No data available</div>`;
   }
 
   const listIdle = document.getElementById('list-idle-assets');
   if (listIdle) {
-    listIdle.innerHTML = `
-      <div class="d-flex justify-content-between align-items-center p-2 rounded-2 border border-secondary-subtle bg-body">
-        <div>
-          <div class="fw-semibold fs-7" style="color: var(--text-color);">Adobe CC License (AST-003)</div>
-          <small class="text-muted">Idle for 45 days</small>
-        </div>
-        <span class="badge bg-warning-subtle text-warning rounded-pill">Cloud</span>
-      </div>
-      <div class="d-flex justify-content-between align-items-center p-2 rounded-2 border border-secondary-subtle bg-body">
-        <div>
-          <div class="fw-semibold fs-7" style="color: var(--text-color);">Conference Table (AST-005)</div>
-          <small class="text-muted">Idle for 28 days</small>
-        </div>
-        <span class="badge bg-warning-subtle text-warning rounded-pill">Meeting B</span>
-      </div>
-      <div class="d-flex justify-content-between align-items-center p-2 rounded-2 border border-secondary-subtle bg-body">
-        <div>
-          <div class="fw-semibold fs-7" style="color: var(--text-color);">Projector bulb (AF-0062)</div>
-          <small class="text-muted">Idle for 14 days</small>
-        </div>
-        <span class="badge bg-warning-subtle text-warning rounded-pill">Storage</span>
-      </div>
-    `;
+    listIdle.innerHTML = `<div class="p-2 text-center text-muted small border rounded">No data available</div>`;
   }
 
   const listDue = document.getElementById('list-due-maint');
   if (listDue) {
-    listDue.innerHTML = `
-      <div class="d-flex justify-content-between align-items-center p-2 rounded-2 border border-secondary-subtle bg-body">
-        <div>
-          <div class="fw-semibold fs-7" style="color: var(--text-color);">Forklift (AF-0078)</div>
-          <small class="text-muted">Due in 4 days</small>
-        </div>
-        <span class="badge bg-danger-subtle text-danger rounded-pill">Scheduled</span>
-      </div>
-      <div class="d-flex justify-content-between align-items-center p-2 rounded-2 border border-secondary-subtle bg-body">
-        <div>
-          <div class="fw-semibold fs-7" style="color: var(--text-color);">Cisco Router (AST-004)</div>
-          <small class="text-muted">Nearing Retirement</small>
-        </div>
-        <span class="badge bg-danger-subtle text-danger rounded-pill">Retire Due</span>
-      </div>
-      <div class="d-flex justify-content-between align-items-center p-2 rounded-2 border border-secondary-subtle bg-body">
-        <div>
-          <div class="fw-semibold fs-7" style="color: var(--text-color);">Projector bulb (AF-0062)</div>
-          <small class="text-muted">Due today</small>
-        </div>
-        <span class="badge bg-danger-subtle text-danger rounded-pill">Repair Due</span>
-      </div>
-    `;
+    listDue.innerHTML = `<div class="p-2 text-center text-muted small border rounded">No data available</div>`;
   }
 }
 
@@ -338,10 +272,10 @@ async function generateReport() {
     reportChart = new Chart(ctx, {
       type: 'bar',
       data: {
-        labels: Object.keys(types).length ? Object.keys(types) : ['Hardware', 'Software', 'Infrastructure', 'Furniture'],
+        labels: Object.keys(types).length ? Object.keys(types) : [],
         datasets: [{
           label: 'Total Value (₹)',
-          data: Object.values(types).length ? Object.values(types) : [0, 0, 0, 0],
+          data: Object.values(types).length ? Object.values(types) : [],
           backgroundColor: '#2563EB',
           borderRadius: 8
         }]
@@ -466,10 +400,10 @@ async function generateReport() {
     reportChart = new Chart(ctx, {
       type: 'bar',
       data: {
-        labels: Object.keys(costsByAsset).length ? Object.keys(costsByAsset) : ['System-wide'],
+        labels: Object.keys(costsByAsset).length ? Object.keys(costsByAsset) : [],
         datasets: [{
           label: 'Total Expenses (₹)',
-          data: Object.values(costsByAsset).length ? Object.values(costsByAsset) : [0],
+          data: Object.values(costsByAsset).length ? Object.values(costsByAsset) : [],
           backgroundColor: '#EF4444',
           borderRadius: 8
         }]
@@ -528,10 +462,10 @@ async function generateReport() {
     reportChart = new Chart(ctx, {
       type: 'bar',
       data: {
-        labels: Object.keys(bookingsByRes).length ? Object.keys(bookingsByRes) : ['Meeting Rooms'],
+        labels: Object.keys(bookingsByRes).length ? Object.keys(bookingsByRes) : [],
         datasets: [{
           label: 'Bookings Count',
-          data: Object.values(bookingsByRes).length ? Object.values(bookingsByRes) : [0],
+          data: Object.values(bookingsByRes).length ? Object.values(bookingsByRes) : [],
           backgroundColor: '#10B981',
           borderRadius: 8
         }]

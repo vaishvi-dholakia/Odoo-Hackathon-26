@@ -111,72 +111,13 @@ const fallbackStore = {
 
 // Initialize fallback store with sample data if empty
 if (!localStorage.getItem('af_fb_initialized_v4')) {
-  // Sample Organization
-  fallbackStore.set('organization', {
-    name: 'Acme India Private Limited',
-    code: 'ACME-IN',
-    industry: 'Technology',
-    address: 'DLF Cyber City, Phase 3, Gurugram, Haryana, India',
-    phone: '+91 98765 43210',
-    website: 'https://acme-india.in'
-  });
 
-  // Sample Assets (INR currency format representation)
-  fallbackStore.set('assets', [
-    { id: 'AST-001', name: 'MacBook Pro 16"', type: 'Hardware', serial: 'C02DF43SMD6R', status: 'Active', value: 199000, location: 'Gurugram HQ', owner: 'Rahul Sharma' },
-    { id: 'AST-002', name: 'Dell UltraSharp 32" Monitor', type: 'Hardware', serial: 'MX-09283-918', status: 'Active', value: 65000, location: 'Gurugram HQ', owner: 'Arjun Nair' },
-    { id: 'AST-003', name: 'Adobe Creative Cloud License', type: 'Software', serial: 'LIC-ADOBE-CC-992', status: 'Active', value: 45000, location: 'Cloud', owner: 'Neha Sharma' },
-    { id: 'AST-004', name: 'Cisco Core Switch', type: 'Infrastructure', serial: 'CS-RTR-4431', status: 'Maintenance', value: 350000, location: 'IT Server Room', owner: 'IT Dept' },
-    { id: 'AST-005', name: 'Conference Table & Chairs', type: 'Furniture', serial: 'FUR-CONF-02', status: 'Active', value: 85000, location: 'Meeting Room B', owner: 'Facility Team' },
-    { id: 'AF-0114', name: 'Dell Latitude Laptop', type: 'Hardware', serial: 'DELL-99218', status: 'Active', value: 95000, location: 'Desk E14', owner: 'Arjun Nair' }
-  ]);
-
-  // Sample Allocations
-  fallbackStore.set('allocations', [
-    { id: 'ALC-001', assetId: 'AST-001', assetName: 'MacBook Pro 16"', allocatedTo: 'Rahul Sharma', date: '2026-01-15', status: 'Approved', department: 'Management' },
-    { id: 'ALC-002', assetId: 'AST-002', assetName: 'Dell UltraSharp 32" Monitor', allocatedTo: 'Arjun Nair', date: '2026-02-10', status: 'Approved', department: 'IT' },
-    { id: 'ALC-003', assetId: 'AST-004', assetName: 'Cisco Core Switch', allocatedTo: 'IT Dept', date: '2026-03-01', status: 'Pending Approval', department: 'IT' },
-    { id: 'ALC-004', assetId: 'AF-0114', assetName: 'Dell Latitude Laptop', allocatedTo: 'Arjun Nair', date: '2026-03-12', status: 'Approved', department: 'IT' },
-    { id: 'ALC-005', assetId: 'AST-003', assetName: 'Adobe Creative Cloud License', allocatedTo: 'Neha Sharma', date: '2026-04-05', status: 'Approved', department: 'Marketing' }
-  ]);
-
-  // Sample Resource Bookings
-  fallbackStore.set('bookings', [
-    { id: 'BKG-001', resourceName: 'Conference Room A', bookedBy: 'Priya Iyer', date: '2026-07-13', startTime: '10:00', endTime: '11:30', status: 'Confirmed', department: 'IT' },
-    { id: 'BKG-002', resourceName: 'Company EV Tata Nexon', bookedBy: 'Vikram Malhotra', date: '2026-07-14', startTime: '09:00', endTime: '17:00', status: 'Confirmed', department: 'Engineering' },
-    { id: 'BKG-003', resourceName: 'Projector Screen B', bookedBy: 'Neha Sharma', date: '2026-07-15', startTime: '14:00', endTime: '16:00', status: 'Confirmed', department: 'Marketing' },
-    { id: 'BKG-004', resourceName: 'Training Hall', bookedBy: 'Arjun Nair', date: '2026-07-16', startTime: '11:00', endTime: '13:00', status: 'Confirmed', department: 'IT' }
-  ]);
-
-  // Sample Maintenance Logs
-  fallbackStore.set('maintenance', [
-    { id: 'MNT-001', assetId: 'AF-0062', assetName: 'Projector bulb', type: 'Repair', description: 'not turning on', cost: 5000, date: '2026-07-10', status: 'Pending' },
-    { id: 'MNT-002', assetId: 'AF-003', assetName: 'AC unit', type: 'Repair', description: 'noisy compressor', cost: 12000, date: '2026-07-09', status: 'Approved' },
-    { id: 'MNT-003', assetId: 'AF-0078', assetName: 'Server Rack Fan', type: 'Scheduled', description: 'Tech: R varma', cost: 18000, date: '2026-07-08', status: 'Technician assigned' },
-    { id: 'MNT-004', assetId: 'AF-897', assetName: 'Printer', type: 'Repair', description: 'Jam parts ordered', cost: 8500, date: '2026-07-07', status: 'In progress' },
-    { id: 'MNT-005', assetId: 'AF-873', assetName: 'Chair repair', type: 'Repair', description: 'resolved 7 Jul', cost: 3500, date: '2026-07-07', status: 'Resolved' }
-  ]);
-
-  // Sample Audits
-  fallbackStore.set('audits', [
-    { id: 'AUD-001', name: 'Q2 Hardware Inventory Audit', date: '2026-06-30', auditor: 'Amit Patel', progress: 100, status: 'Completed' },
-    { id: 'AUD-002', name: 'Software License Compliance Audit', date: '2026-08-15', auditor: 'Priya Iyer', progress: 10, status: 'In Progress' }
-  ]);
-
-  // Sample Notifications
-  fallbackStore.set('notifications', [
-    { id: 'NTF-001', title: 'Maintenance Overdue', message: 'Asset AST-004 Cisco Core Switch is overdue for firmware check.', type: 'warning', date: '2026-07-12 08:30', read: false },
-    { id: 'NTF-002', title: 'Booking Confirmed', message: 'Your booking for Conference Room A has been confirmed for 2026-07-13.', type: 'success', date: '2026-07-11 14:20', read: false },
-    { id: 'NTF-003', title: 'New Asset Assigned', message: 'Adobe Creative Cloud License has been assigned to Creative Team.', type: 'info', date: '2026-07-10 10:15', read: true }
-  ]);
 
   // Seed default registered users
   fallbackStore.set('registered_users', [
     { email: 'admin@assetflow.com', password: 'Password123!', fullName: 'Rahul Sharma', role: 'Admin', department: 'Management', avatar: '', isVerified: true },
     { email: 'manager@assetflow.com', password: 'Password123!', fullName: 'Amit Patel', role: 'Asset Manager', department: 'Asset Management', avatar: '', isVerified: true },
     { email: 'it-head@assetflow.com', password: 'Password123!', fullName: 'Priya Iyer', role: 'Department Head', department: 'IT', avatar: '', isVerified: true },
-    { email: 'eng-head@assetflow.com', password: 'Password123!', fullName: 'Vikram Malhotra', role: 'Department Head', department: 'Engineering', avatar: '', isVerified: true },
-    { email: 'mkt-head@assetflow.com', password: 'Password123!', fullName: 'Neha Sharma', role: 'Department Head', department: 'Marketing', avatar: '', isVerified: true },
     { email: 'employee@assetflow.com', password: 'Password123!', fullName: 'Arjun Nair', role: 'Employee', department: 'IT', avatar: '', isVerified: true }
   ]);
 
@@ -252,7 +193,7 @@ const ApiService = {
             email: user.email, 
             role: user.role || 'Employee', 
             department: user.department || 'IT',
-            avatar: user.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=100' 
+            avatar: user.avatar || '' 
           };
           localStorage.setItem('token', 'fallback-mock-jwt-token-' + userProfile.role.replace(' ', ''));
           localStorage.setItem('user', JSON.stringify(userProfile));

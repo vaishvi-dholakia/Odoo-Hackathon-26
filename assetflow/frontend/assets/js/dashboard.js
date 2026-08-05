@@ -314,7 +314,7 @@ function renderRoleCharts(role, data) {
           datasets: [
             {
               label: 'Asset Initial Value',
-              data: [15000, 18000, 22000, 21000, 25000, data.totalValue || 28000],
+              data: data.assets.length ? [15000, 18000, 22000, 21000, 25000, data.totalValue] : [],
               borderColor: '#2563EB',
               backgroundColor: 'rgba(37, 99, 235, 0.05)',
               fill: true,
@@ -322,7 +322,7 @@ function renderRoleCharts(role, data) {
             },
             {
               label: 'Depreciated Value',
-              data: [11000, 13000, 15000, 14000, 16000, (data.totalValue || 28000) * 0.7],
+              data: data.assets.length ? [11000, 13000, 15000, 14000, 16000, data.totalValue * 0.7] : [],
               borderColor: '#F59E0B',
               backgroundColor: 'transparent',
               borderDash: [5, 5],
@@ -348,8 +348,8 @@ function renderRoleCharts(role, data) {
     if (ctxDist) {
       const types = {};
       data.assets.forEach(a => { types[a.type] = (types[a.type] || 0) + 1; });
-      const finalLabels = Object.keys(types).length ? Object.keys(types) : ['Hardware', 'Software', 'Infrastructure', 'Furniture'];
-      const finalData = Object.values(types).length ? Object.values(types) : [12, 5, 8, 4];
+      const finalLabels = Object.keys(types).length ? Object.keys(types) : [];
+      const finalData = Object.values(types).length ? Object.values(types) : [];
       const colors = ['#2563EB', '#3B82F6', '#10B981', '#F59E0B', '#EF4444'];
 
       const chart = new Chart(ctxDist, {
@@ -398,9 +398,9 @@ function renderRoleCharts(role, data) {
       const chart = new Chart(ctxStatus, {
         type: 'doughnut',
         data: {
-          labels: Object.keys(statuses).length ? Object.keys(statuses) : ['Active', 'Maintenance', 'Archived'],
+          labels: Object.keys(statuses).length ? Object.keys(statuses) : [],
           datasets: [{
-            data: Object.values(statuses).length ? Object.values(statuses) : [25, 4, 2],
+            data: Object.values(statuses).length ? Object.values(statuses) : [],
             backgroundColor: ['#10B981', '#EF4444', '#64748B']
           }]
         },
@@ -419,10 +419,10 @@ function renderRoleCharts(role, data) {
       const chart = new Chart(ctxAlloc, {
         type: 'line',
         data: {
-          labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+          labels: data.allocations.length ? ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'] : [],
           datasets: [{
             label: 'Allocations',
-            data: [5, 12, 8, 15, 22, data.allocations.length || 18],
+            data: data.allocations.length ? [5, 12, 8, 15, 22, data.allocations.length] : [],
             borderColor: '#3B82F6',
             backgroundColor: 'transparent',
             tension: 0.3
@@ -447,10 +447,10 @@ function renderRoleCharts(role, data) {
       const chart = new Chart(ctxMaint, {
         type: 'bar',
         data: {
-          labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+          labels: data.maintenance.length ? ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'] : [],
           datasets: [{
             label: 'Repairs Completed',
-            data: [2, 4, 1, 5, 3, data.maintenance.filter(m => m.status === 'Resolved').length || 6],
+            data: data.maintenance.length ? [2, 4, 1, 5, 3, data.maintenance.filter(m => m.status === 'Resolved').length] : [],
             backgroundColor: '#EF4444',
             borderRadius: 4
           }]
@@ -474,10 +474,10 @@ function renderRoleCharts(role, data) {
       const chart = new Chart(ctxDept, {
         type: 'bar',
         data: {
-          labels: ['Laptops', 'Monitors', 'AV Equipment', 'Software Licenses', 'Furniture'],
+          labels: data.assets.length ? ['Laptops', 'Monitors', 'AV Equipment', 'Software Licenses', 'Furniture'] : [],
           datasets: [{
             label: 'Quantity',
-            data: [8, 5, 2, 6, 4],
+            data: data.assets.length ? [8, 5, 2, 6, 4] : [],
             backgroundColor: '#8B5CF6',
             borderRadius: 4
           }]
@@ -501,10 +501,10 @@ function renderRoleCharts(role, data) {
       const chart = new Chart(ctxBook, {
         type: 'line',
         data: {
-          labels: ['Wk 1', 'Wk 2', 'Wk 3', 'Wk 4'],
+          labels: data.bookings.length ? ['Wk 1', 'Wk 2', 'Wk 3', 'Wk 4'] : [],
           datasets: [{
             label: 'Hours Booked',
-            data: [12, 18, 15, 24],
+            data: data.bookings.length ? [12, 18, 15, 24] : [],
             borderColor: '#10B981',
             tension: 0.3,
             fill: false

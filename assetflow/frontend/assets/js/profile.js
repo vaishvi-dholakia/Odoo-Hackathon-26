@@ -52,6 +52,12 @@ function loadUserProfile() {
   try {
     const user = JSON.parse(savedUser);
     
+    // Strip cached default unsplash image
+    if (user.avatar && user.avatar.includes('unsplash.com')) {
+      user.avatar = '';
+      localStorage.setItem('user', JSON.stringify(user));
+    }
+    
     // Set Profile Card info
     document.getElementById('profile-card-name').textContent = user.fullName || user.name || 'User';
     document.getElementById('profile-card-role').textContent = user.role || 'Employee';
