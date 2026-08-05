@@ -39,6 +39,33 @@ function leftPad(num, value) {
 const minus = '-'.charCodeAt(0);
 const plus = '+'.charCodeAt(0);
 
+// JSON.parse source access: proposal-json-parse-with-source,
+// Node.js 22+ / V8 12.2
+const jsonSourceAccessSupported = (() => {
+  let supported = false;
+  JSON.parse('0', (key, value, context) => {
+    supported = context !== undefined && typeof context.source === 'string';
+    return value;
+  });
+  return supported;
+})();
+
+// 16 digits is the shortest numeral that can exceed Number.MAX_SAFE_INTEGER
+const jsonBigNumeral = /\d{16}/;
+const jsonIntegerSource = /^-?\d+$/;
+
+function jsonBigNumberReviver(key, value, context) {
+  if (
+    typeof value === 'number' &&
+    !Number.isSafeInteger(value) &&
+    context !== undefined &&
+    jsonIntegerSource.test(context.source)
+  ) {
+    return context.source;
+  }
+  return value;
+}
+
 // TODO: handle E notation
 const dot = '.'.charCodeAt(0);
 const exponent = 'e'.charCodeAt(0);
@@ -652,6 +679,21 @@ class Packet {
       result.push(this.readFloat());
     }
     return result;
+  }
+
+  // With supportBigNumbers, unsafe integers become exact strings,
+  // mirroring the option's behaviour for BIGINT columns
+  parseJson(encoding, supportBigNumbers) {
+    const str = this.readLengthCodedString(encoding);
+    if (
+      supportBigNumbers &&
+      jsonSourceAccessSupported &&
+      str !== null &&
+      jsonBigNumeral.test(str)
+    ) {
+      return JSON.parse(str, jsonBigNumberReviver);
+    }
+    return JSON.parse(str);
   }
 
   parseDate(timezone) {
