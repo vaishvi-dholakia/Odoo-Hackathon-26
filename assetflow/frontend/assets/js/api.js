@@ -98,33 +98,7 @@ function handleApiError(error, fallbackCallback) {
   throw new Error(message);
 }
 
-// Local Storage Fallback Data Store (to ensure the frontend is interactive during review)
-const fallbackStore = {
-  get: (key, defaultValue) => {
-    const val = localStorage.getItem(`af_fb_${key}`);
-    return val ? JSON.parse(val) : defaultValue;
-  },
-  set: (key, value) => {
-    localStorage.setItem(`af_fb_${key}`, JSON.stringify(value));
-  }
-};
-
-// Initialize fallback store clean without static dummy departments/users/bookings/maintenance
-if (!localStorage.getItem('af_fb_initialized_v7')) {
-  // Wipe any old static data from fallback storage
-  localStorage.removeItem('af_fb_departments');
-  localStorage.removeItem('af_fb_bookings');
-  localStorage.removeItem('af_fb_maintenance');
-  fallbackStore.set('departments', []);
-  fallbackStore.set('maintenance', []);
-
-  // Seed initial admin account only (no dummy employees or dummy department heads)
-  fallbackStore.set('registered_users', [
-    { email: 'admin@assetflow.com', password: 'Password123!', fullName: 'Rahul Sharma', role: 'Admin', department: 'Management', avatar: '', isVerified: true }
-  ]);
-
-  localStorage.setItem('af_fb_initialized_v7', 'true');
-}
+// Fallback store removed for production environment
 
 // Global API Services Module
 const ApiService = {
@@ -198,9 +172,7 @@ const ApiService = {
         const res = await api.get('/org');
         return res.data;
       } catch (err) {
-        return handleApiError(err, () => {
-          return fallbackStore.get('organization');
-        });
+        return handleApiError(err);
       }
     },
     save: async (orgData) => {
@@ -208,10 +180,7 @@ const ApiService = {
         const res = await api.put('/org', orgData);
         return res.data;
       } catch (err) {
-        return handleApiError(err, () => {
-          fallbackStore.set('organization', orgData);
-          return { success: true, message: "Organization setup saved successfully!" };
-        });
+        return handleApiError(err);
       }
     }
   },
@@ -223,9 +192,7 @@ const ApiService = {
         const res = await api.get('/assets');
         return res.data;
       } catch (err) {
-        return handleApiError(err, () => {
-          return fallbackStore.get('assets', []);
-        });
+        return handleApiError(err);
       }
     },
     create: async (asset) => {
@@ -233,13 +200,7 @@ const ApiService = {
         const res = await api.post('/assets', asset);
         return res.data;
       } catch (err) {
-        return handleApiError(err, () => {
-          const assets = fallbackStore.get('assets', []);
-          const newAsset = { ...asset, id: 'AST-' + String(assets.length + 1).padStart(3, '0') };
-          assets.push(newAsset);
-          fallbackStore.set('assets', assets);
-          return { success: true, asset: newAsset, message: "Asset added successfully!" };
-        });
+        return handleApiError(err);
       }
     },
     update: async (id, assetData) => {
@@ -247,16 +208,7 @@ const ApiService = {
         const res = await api.put(`/assets/${id}`, assetData);
         return res.data;
       } catch (err) {
-        return handleApiError(err, () => {
-          const assets = fallbackStore.get('assets', []);
-          const idx = assets.findIndex(a => a.id === id);
-          if (idx !== -1) {
-            assets[idx] = { ...assets[idx], ...assetData };
-            fallbackStore.set('assets', assets);
-            return { success: true, message: "Asset updated successfully!" };
-          }
-          throw new Error("Asset not found");
-        });
+        return handleApiError(err);
       }
     },
     delete: async (id) => {
@@ -264,12 +216,7 @@ const ApiService = {
         const res = await api.delete(`/assets/${id}`);
         return res.data;
       } catch (err) {
-        return handleApiError(err, () => {
-          let assets = fallbackStore.get('assets', []);
-          assets = assets.filter(a => a.id !== id);
-          fallbackStore.set('assets', assets);
-          return { success: true, message: "Asset deleted successfully!" };
-        });
+        return handleApiError(err);
       }
     }
   },
@@ -281,9 +228,7 @@ const ApiService = {
         const res = await api.get('/allocations');
         return res.data;
       } catch (err) {
-        return handleApiError(err, () => {
-          return fallbackStore.get('allocations', []);
-        });
+        return handleApiError(err);
       }
     },
     create: async (allocation) => {
@@ -291,13 +236,7 @@ const ApiService = {
         const res = await api.post('/allocations', allocation);
         return res.data;
       } catch (err) {
-        return handleApiError(err, () => {
-          const allocations = fallbackStore.get('allocations', []);
-          const newAlloc = { ...allocation, id: 'ALC-' + String(allocations.length + 1).padStart(3, '0'), status: 'Pending Approval' };
-          allocations.push(newAlloc);
-          fallbackStore.set('allocations', allocations);
-          return { success: true, allocation: newAlloc, message: "Allocation request created!" };
-        });
+        return handleApiError(err);
       }
     },
     action: async (id, status, assetId = null) => {
@@ -305,26 +244,7 @@ const ApiService = {
         const res = await api.post(`/allocations/${id}/action`, { status, assetId });
         return res.data;
       } catch (err) {
-        return handleApiError(err, () => {
-          const allocations = fallbackStore.get('allocations', []);
-          const idx = allocations.findIndex(a => a.id === id);
-          if (idx !== -1) {
-            allocations[idx].status = status;
-            if (status === 'Approved' && assetId) {
-              allocations[idx].assetId = assetId;
-              const assets = fallbackStore.get('assets', []);
-              const asset = assets.find(a => a.id === assetId);
-              if (asset) {
-                allocations[idx].assetName = asset.name;
-                asset.owner = allocations[idx].allocatedTo;
-                fallbackStore.set('assets', assets);
-              }
-            }
-            fallbackStore.set('allocations', allocations);
-            return { success: true, message: `Allocation ${status.toLowerCase()} successfully!` };
-          }
-          throw new Error("Allocation not found");
-        });
+        return handleApiError(err);
       }
     }
   },
@@ -364,9 +284,7 @@ const ApiService = {
         const res = await api.get('/maintenance');
         return res.data;
       } catch (err) {
-        return handleApiError(err, () => {
-          return fallbackStore.get('maintenance', []);
-        });
+        return handleApiError(err);
       }
     },
     create: async (log) => {
@@ -374,13 +292,7 @@ const ApiService = {
         const res = await api.post('/maintenance', log);
         return res.data;
       } catch (err) {
-        return handleApiError(err, () => {
-          const maintenance = fallbackStore.get('maintenance', []);
-          const newLog = { ...log, id: 'MNT-' + String(maintenance.length + 1).padStart(3, '0'), status: 'Pending' };
-          maintenance.push(newLog);
-          fallbackStore.set('maintenance', maintenance);
-          return { success: true, log: newLog, message: "Maintenance log added successfully!" };
-        });
+        return handleApiError(err);
       }
     },
     updateStatus: async (id, status) => {
@@ -388,16 +300,7 @@ const ApiService = {
         const res = await api.put(`/maintenance/${id}/status`, { status });
         return res.data;
       } catch (err) {
-        return handleApiError(err, () => {
-          const maintenance = fallbackStore.get('maintenance', []);
-          const idx = maintenance.findIndex(m => m.id === id);
-          if (idx !== -1) {
-            maintenance[idx].status = status;
-            fallbackStore.set('maintenance', maintenance);
-            return { success: true, message: "Maintenance status updated!" };
-          }
-          throw new Error("Log not found");
-        });
+        return handleApiError(err);
       }
     }
   },
@@ -409,9 +312,7 @@ const ApiService = {
         const res = await api.get('/audits');
         return res.data;
       } catch (err) {
-        return handleApiError(err, () => {
-          return fallbackStore.get('audits');
-        });
+        return handleApiError(err);
       }
     },
     create: async (audit) => {
@@ -419,13 +320,7 @@ const ApiService = {
         const res = await api.post('/audits', audit);
         return res.data;
       } catch (err) {
-        return handleApiError(err, () => {
-          const audits = fallbackStore.get('audits');
-          const newAudit = { ...audit, id: 'AUD-' + String(audits.length + 1).padStart(3, '0'), progress: 0, status: 'In Progress' };
-          audits.push(newAudit);
-          fallbackStore.set('audits', audits);
-          return { success: true, audit: newAudit, message: "Audit scheduled successfully!" };
-        });
+        return handleApiError(err);
       }
     },
     updateProgress: async (id, progress) => {
@@ -433,19 +328,23 @@ const ApiService = {
         const res = await api.put(`/audits/${id}/progress`, { progress });
         return res.data;
       } catch (err) {
-        return handleApiError(err, () => {
-          const audits = fallbackStore.get('audits');
-          const idx = audits.findIndex(a => a.id === id);
-          if (idx !== -1) {
-            audits[idx].progress = progress;
-            if (progress === 100) {
-              audits[idx].status = 'Completed';
-            }
-            fallbackStore.set('audits', audits);
-            return { success: true, message: "Audit progress updated!" };
-          }
-          throw new Error("Audit record not found");
-        });
+        return handleApiError(err);
+      }
+    },
+    getState: async (id) => {
+      try {
+        const res = await api.get(`/audits/${id}/state`);
+        return res.data.state;
+      } catch (err) {
+        return handleApiError(err);
+      }
+    },
+    saveState: async (id, state) => {
+      try {
+        const res = await api.put(`/audits/${id}/state`, { state });
+        return res.data;
+      } catch (err) {
+        return handleApiError(err);
       }
     }
   },
@@ -457,9 +356,7 @@ const ApiService = {
         const res = await api.get('/notifications');
         return res.data;
       } catch (err) {
-        return handleApiError(err, () => {
-          return fallbackStore.get('notifications');
-        });
+        return handleApiError(err);
       }
     },
     markAsRead: async (id) => {
@@ -467,16 +364,7 @@ const ApiService = {
         const res = await api.post(`/notifications/${id}/read`);
         return res.data;
       } catch (err) {
-        return handleApiError(err, () => {
-          const notifications = fallbackStore.get('notifications');
-          const idx = notifications.findIndex(n => n.id === id);
-          if (idx !== -1) {
-            notifications[idx].read = true;
-            fallbackStore.set('notifications', notifications);
-            return { success: true };
-          }
-          throw new Error("Notification not found");
-        });
+        return handleApiError(err);
       }
     },
     clearAll: async () => {
@@ -484,10 +372,7 @@ const ApiService = {
         const res = await api.delete('/notifications');
         return res.data;
       } catch (err) {
-        return handleApiError(err, () => {
-          fallbackStore.set('notifications', []);
-          return { success: true };
-        });
+        return handleApiError(err);
       }
     },
     create: async (notifData) => {
@@ -495,20 +380,7 @@ const ApiService = {
         const res = await api.post('/notifications', notifData);
         return res.data;
       } catch (err) {
-        return handleApiError(err, () => {
-          const list = fallbackStore.get('notifications') || [];
-          const newNotif = {
-            id: 'NTF-' + Math.floor(1000 + Math.random() * 9000),
-            title: notifData.title,
-            message: notifData.message,
-            type: notifData.type || 'info',
-            date: new Date().toISOString().replace('T', ' ').substring(0, 16),
-            read: false
-          };
-          list.unshift(newNotif);
-          fallbackStore.set('notifications', list);
-          return { success: true, message: "Notification sent successfully!" };
-        });
+        return handleApiError(err);
       }
     }
   },
@@ -520,9 +392,7 @@ const ApiService = {
         const res = await api.get('/departments');
         return res.data;
       } catch (err) {
-        return handleApiError(err, () => {
-          return fallbackStore.get('departments', []);
-        });
+        return handleApiError(err);
       }
     },
     create: async (name) => {
@@ -530,13 +400,7 @@ const ApiService = {
         const res = await api.post('/departments', { name });
         return res.data;
       } catch (err) {
-        return handleApiError(err, () => {
-          const depts = fallbackStore.get('departments', []);
-          if (depts.includes(name)) throw new Error("Department already exists.");
-          depts.push(name);
-          fallbackStore.set('departments', depts);
-          return { success: true, message: "Department added successfully!" };
-        });
+        return handleApiError(err);
       }
     },
     delete: async (name) => {
@@ -544,12 +408,7 @@ const ApiService = {
         const res = await api.delete(`/departments/${encodeURIComponent(name)}`);
         return res.data;
       } catch (err) {
-        return handleApiError(err, () => {
-          let depts = fallbackStore.get('departments', []);
-          const filtered = depts.filter(d => (typeof d === 'string' ? d : d.name) !== name);
-          fallbackStore.set('departments', filtered);
-          return { success: true, message: "Department deleted successfully!" };
-        });
+        return handleApiError(err);
       }
     }
   },
@@ -563,12 +422,7 @@ const ApiService = {
         localStorage.setItem('user', JSON.stringify(res.data.user));
         return res.data;
       } catch (err) {
-        return handleApiError(err, () => {
-          const user = JSON.parse(localStorage.getItem('user')) || {};
-          const updatedUser = { ...user, ...profileData };
-          localStorage.setItem('user', JSON.stringify(updatedUser));
-          return { success: true, user: updatedUser, message: "Profile updated successfully!" };
-        });
+        return handleApiError(err);
       }
     },
     changePassword: async (pwdData) => {
@@ -576,13 +430,7 @@ const ApiService = {
         const res = await api.post('/profile/change-password', pwdData);
         return res.data;
       } catch (err) {
-        return handleApiError(err, () => {
-          // Simulating password check
-          if (pwdData.currentPassword === '') {
-            throw new Error("Current password cannot be empty.");
-          }
-          return { success: true, message: "Password updated successfully!" };
-        });
+        return handleApiError(err);
       }
     }
   },
@@ -602,46 +450,7 @@ const ApiService = {
         const res = await api.put('/users/role', { email, role, department, oldHeadEmail, oldHeadStatus, oldHeadDetails });
         return res.data;
       } catch (err) {
-        return handleApiError(err, () => {
-          const registeredUsers = fallbackStore.get('registered_users', []);
-          
-          // Demote / Transition existing head if assigning a new head
-          if (role === 'Department Head') {
-            if (oldHeadEmail) {
-              const oldUser = registeredUsers.find(u => u.email === oldHeadEmail);
-              if (oldUser) {
-                oldUser.role = 'Employee';
-                oldUser.status = oldHeadStatus || 'Employee';
-                oldUser.transitionDetails = oldHeadDetails || null;
-              }
-            } else {
-              registeredUsers.forEach(u => {
-                if (u.department === department && u.role === 'Department Head') {
-                  u.role = 'Employee';
-                  u.status = 'Active';
-                }
-              });
-            }
-          }
-
-          const user = registeredUsers.find(u => u.email === email);
-          if (user) {
-            user.role = role;
-            user.department = department;
-            user.status = 'Active';
-            fallbackStore.set('registered_users', registeredUsers);
-            
-            // Sync with current user profile if active
-            const loggedInUser = JSON.parse(localStorage.getItem('user')) || {};
-            if (loggedInUser.email === email) {
-              const updatedProfile = { ...loggedInUser, role, department };
-              localStorage.setItem('user', JSON.stringify(updatedProfile));
-            }
-            
-            return { success: true, message: `Assigned ${user.fullName || user.name} as Head of ${department} department.` };
-          }
-          throw new Error("User not found.");
-        });
+        return handleApiError(err);
       }
     }
   }

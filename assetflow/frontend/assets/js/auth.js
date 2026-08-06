@@ -172,6 +172,36 @@ function setupLoginForm() {
       if (submitBtn) submitBtn.disabled = false;
     }
   });
+
+  const devResetBtn = document.getElementById('btn-dev-reset');
+  if (devResetBtn) {
+    devResetBtn.addEventListener('click', () => {
+      Swal.fire({
+        title: 'Developer Reset',
+        text: 'Are you sure you want to completely reset the database? All data will be lost.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Yes, reset it!'
+      }).then(async (result) => {
+        if (result.isConfirmed) {
+          try {
+            await axios.post('http://localhost:3000/api/dev/reset-db');
+            Swal.fire(
+              'Reset Complete',
+              'The database has been wiped and the Admin account was seeded. Reloading...',
+              'success'
+            ).then(() => {
+              window.location.reload();
+            });
+          } catch (err) {
+            Swal.fire('Error', 'Failed to reset database: ' + err.message, 'error');
+          }
+        }
+      });
+    });
+  }
 }
 
 

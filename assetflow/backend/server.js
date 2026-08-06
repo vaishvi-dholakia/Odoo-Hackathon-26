@@ -51,6 +51,16 @@ db.initializeDatabase()
 
 // --- API ROUTES ---
 
+// 0. Developer Endpoints
+app.post('/api/dev/reset-db', async (req, res) => {
+  try {
+    await db.resetDatabase();
+    res.json({ success: true, message: 'Database reset successfully!' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 // 1. Authentication Endpoints
 app.post('/api/auth/signup', authenticateToken, async (req, res) => {
   if (req.user.role !== 'Admin') {
@@ -568,6 +578,32 @@ app.put('/api/audits/:id/progress', authenticateToken, async (req, res) => {
     const status = progress === 100 ? 'Completed' : 'In Progress';
     await db.query('UPDATE audits SET progress = ?, status = ? WHERE id = ?', [progress, status, id]);
     res.json({ success: true, message: 'Audit progress updated!' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+app.get('/api/audits/:id/state', authenticateToken, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const audits = await db.query('SELECT assetState FROM audits WHERE id = ?', [id]);
+    if (audits.length === 0) {
+      return res.status(404).json({ message: 'Audit not found.' });
+    }
+    const state = audits[0].assetState ? JSON.parse(audits[0].assetState) : null;
+    res.json({ state });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+app.put('/api/audits/:id/state', authenticateToken, async (req, res) => {
+  const { id } = req.params;
+  const { state } = req.body;
+  try {
+    const stateStr = state ? JSON.stringify(state) : null;
+    await db.query('UPDATE audits SET assetState = ? WHERE id = ?', [stateStr, id]);
+    res.json({ success: true, message: 'Audit state saved!' });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

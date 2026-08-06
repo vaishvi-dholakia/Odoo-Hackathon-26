@@ -186,21 +186,11 @@ function setupEventListeners() {
         ];
       }
 
-      // Check if we already have progress or state saved in localStorage for this audit
-      const savedState = localStorage.getItem(`audit_state_${id}`);
+      // Check if we already have progress or state saved in the backend for this audit
+      const savedState = await window.ApiService.audits.getState(id);
       if (savedState) {
-        auditAssetsState = JSON.parse(savedState);
+        auditAssetsState = savedState;
       } else {
-        // Mock some defaults to make it look exactly like Screen 8 at first load
-        if (checklistAssets.length >= 3 && checklistAssets[0].tag === 'AF-003') {
-          checklistAssets[0].verification = 'Verified';
-          checklistAssets[1].verification = 'Missing';
-          checklistAssets[2].verification = 'Damaged';
-        } else if (checklistAssets.length > 0) {
-          checklistAssets[0].verification = 'Verified';
-          if (checklistAssets.length > 1) checklistAssets[1].verification = 'Missing';
-          if (checklistAssets.length > 2) checklistAssets[2].verification = 'Damaged';
-        }
         auditAssetsState = checklistAssets;
       }
 
@@ -448,8 +438,8 @@ function renderWorkspaceChecklist(isViewOnly) {
         
         auditAssetsState[idx].verification = choice;
         
-        // Save current campaign state
-        localStorage.setItem(`audit_state_${activeAuditCampaignId}`, JSON.stringify(auditAssetsState));
+        // Save current campaign state to backend
+        await window.ApiService.audits.saveState(activeAuditCampaignId, auditAssetsState);
         
         // Calculate progress percentage
         const verifiedOrFlagged = auditAssetsState.filter(a => a.verification !== 'Pending').length;
@@ -469,64 +459,49 @@ async function executeCloseAuditCycle() {
   try {
     // 1. Mark campaign as completed (progress 100, status Completed)
     await window.ApiService.audits.updateProgress(activeAuditCampaignId, 100);
-    
-    // We also need to set the status to Completed. Let's find and update the status in mock db
-    const campaigns = JSON.parse(localStorage.getItem('mock_audits') || '[]');
-    const idx = campaigns.findIndex(c => String(c.id) === String(activeAuditCampaignId));
-    if (idx !== -1) {
-      campaigns[idx].status = 'Completed';
-      campaigns[idx].progress = 100;
-      localStorage.setItem('mock_audits', JSON.stringify(campaigns));
-    }
 
     // 2. Loop through assets state and apply updates to statuses
-    const assets = JSON.parse(localStorage.getItem('mock_assets') || '[]');
+    const assets = await window.ApiService.assets.list();
     
     for (let audited of auditAssetsState) {
       const targetAsset = assets.find(a => String(a.id) === String(audited.tag));
       if (targetAsset) {
         if (audited.verification === 'Missing') {
-          targetAsset.status = 'Lost';
+          await window.ApiService.assets.update(targetAsset.id, { ...targetAsset, status: 'Lost' });
           
           // Log discrepancy notification & audit log
           await window.ApiService.notifications.create({
             title: `Audit Discrepancy Flagged: ${targetAsset.id} Missing`,
             message: `During campaign, asset ${targetAsset.name} was marked missing. Status set to Lost.`,
-            type: 'Alert'
+            type: 'warning'
           });
         } else if (audited.verification === 'Damaged') {
-          targetAsset.status = 'Under Maintenance';
+          await window.ApiService.assets.update(targetAsset.id, { ...targetAsset, status: 'Maintenance' });
           
           // Log discrepancy notification & audit log
           await window.ApiService.notifications.create({
             title: `Audit Discrepancy Flagged: ${targetAsset.id} Damaged`,
-            message: `Asset ${targetAsset.name} was marked damaged. Status set to Under Maintenance.`,
-            type: 'Alert'
+            message: `Asset ${targetAsset.name} was marked damaged. Status set to Maintenance.`,
+            type: 'warning'
           });
 
           // Create a maintenance request automatically
-          const maintLogs = JSON.parse(localStorage.getItem('mock_maintenance') || '[]');
-          maintLogs.push({
-            id: `MNT-${Math.floor(1000 + Math.random() * 9000)}`,
+          await window.ApiService.maintenance.create({
             assetId: targetAsset.id,
             assetName: targetAsset.name,
             type: 'Repair',
             cost: 250,
             date: new Date().toISOString().split('T')[0],
-            status: 'Pending',
             description: `Auto-generated from audit: Asset found damaged during check-in.`
           });
-          localStorage.setItem('mock_maintenance', JSON.stringify(maintLogs));
         } else if (audited.verification === 'Verified' && targetAsset.status === 'Lost') {
-          targetAsset.status = 'Available';
+          await window.ApiService.assets.update(targetAsset.id, { ...targetAsset, status: 'Active' });
         }
       }
     }
 
-    localStorage.setItem('mock_assets', JSON.stringify(assets));
-
-    // Save final checklist state
-    localStorage.setItem(`audit_state_${activeAuditCampaignId}`, JSON.stringify(auditAssetsState));
+    // Save final checklist state to backend
+    await window.ApiService.audits.saveState(activeAuditCampaignId, auditAssetsState);
 
     Swal.fire({
       title: 'Audit Cycle Closed!',

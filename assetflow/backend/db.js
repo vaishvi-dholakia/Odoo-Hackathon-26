@@ -139,7 +139,8 @@ async function initializeDatabase() {
       date VARCHAR(100) NOT NULL,
       auditor VARCHAR(255) NOT NULL,
       progress INT DEFAULT 0,
-      status VARCHAR(100) NOT NULL
+      status VARCHAR(100) NOT NULL,
+      assetState TEXT
     ) ENGINE=InnoDB;
   `);
 
@@ -188,7 +189,15 @@ async function seedDatabase() {
   console.log('Database verified successfully.');
 }
 
+async function resetDatabase() {
+  console.log('Developer Reset Database Triggered...');
+  await query('DROP TABLE IF EXISTS notifications, audits, maintenance, bookings, allocations, assets, organization, users, departments;');
+  await initializeDatabase();
+  console.log('Database reset complete.');
+}
+
 module.exports = {
   query,
-  initializeDatabase
+  initializeDatabase,
+  resetDatabase
 };
