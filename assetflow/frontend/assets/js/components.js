@@ -110,7 +110,6 @@ function renderSidebar(isSubPage, assetPrefix, pagePrefix) {
       if (item.path === 'reports.html') displayName = 'Department Reports';
     } else if (role === 'Employee') {
       if (item.path === 'assets.html') displayName = 'My Assets';
-      if (item.path === 'booking.html') displayName = 'My Bookings';
       if (item.path === 'maintenance.html') displayName = 'Maintenance Requests';
     }
 

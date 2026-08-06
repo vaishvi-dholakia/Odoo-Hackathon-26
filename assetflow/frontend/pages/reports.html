@@ -169,21 +169,15 @@
           </div>
         </div>
 
-        <!-- Details Data Table -->
-        <div class="card-custom">
-          <h5 class="fw-bold mb-3">Compiled Ledger Detail</h5>
-          <div class="table-custom-wrapper">
-            <table class="table-custom" id="report-table">
-              <thead>
-                <tr id="report-table-header">
-                  <!-- Dynamic Headers -->
-                </tr>
-              </thead>
-              <tbody id="report-table-body">
-                <!-- Dynamic Rows -->
-              </tbody>
-            </table>
-          </div>
+
+        <!-- Hidden Details Data Table to maintain JS chart calculations and CSV Export -->
+        <div class="d-none">
+          <table id="report-table">
+            <thead>
+              <tr id="report-table-header"></tr>
+            </thead>
+            <tbody id="report-table-body"></tbody>
+          </table>
         </div>
 
       </div>

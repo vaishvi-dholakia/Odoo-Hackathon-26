@@ -33,6 +33,19 @@ function initCalendar() {
       right: 'dayGridMonth,timeGridWeek,timeGridDay'
     },
     events: [],
+    eventContent: function(arg) {
+      const b = arg.event.extendedProps;
+      if (!b) return;
+      return {
+        html: `
+          <div class="p-1 overflow-hidden" style="line-height: 1.2; white-space: normal; word-break: break-word;">
+            <div class="fw-bold" style="font-size: 0.7rem;"><i class="fa-regular fa-clock me-1"></i>${b.startTime} - ${b.endTime}</div>
+            <div class="fw-semibold" style="font-size: 0.75rem;">${escapeHtml(b.resourceName)}</div>
+            <div style="font-size: 0.7rem; opacity: 0.9;">By: ${escapeHtml(b.bookedBy)}</div>
+          </div>
+        `
+      };
+    },
     eventClick: function(info) {
       const b = info.event.extendedProps;
       Swal.fire({
@@ -88,10 +101,8 @@ async function loadBookings() {
     const user = window.RbacService.getCurrentUser();
     const currentUserName = user ? (user.name || user.fullName) : '';
     
-    // Filter own bookings if Employee role
-    const filteredBookings = role === 'Employee'
-      ? bookings.filter(b => b.bookedBy && b.bookedBy.toLowerCase() === currentUserName.toLowerCase())
-      : bookings;
+    // Allow all roles to see all bookings to prevent scheduling conflicts
+    const filteredBookings = bookings;
     
     // 1. Populate Calendar Events with dynamic color palette
     const colorPalette = ['#2563EB', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4', '#6366F1'];
@@ -111,6 +122,7 @@ async function loadBookings() {
           start: `${b.date}T${b.startTime}:00`,
           end: `${b.date}T${b.endTime}:00`,
           color: resourceColorMap[b.resourceName] || '#2563EB',
+          display: 'block',
           extendedProps: b
         });
       }
@@ -121,12 +133,10 @@ async function loadBookings() {
       calendar.addEventSource(events);
     }
 
-    // 2. Populate My Bookings list in the sidebar
+    // 2. Populate All Bookings list in the sidebar
     const listTitleEl = document.querySelector('.card-custom h5 i.fa-clock-history')?.parentElement;
     if (listTitleEl) {
-      listTitleEl.innerHTML = role === 'Employee' 
-        ? `<i class="fa-solid fa-clock-history me-2 text-primary"></i>My Bookings`
-        : `<i class="fa-solid fa-clock-history me-2 text-primary"></i>All Bookings`;
+      listTitleEl.innerHTML = `<i class="fa-solid fa-clock-history me-2 text-primary"></i>All Bookings`;
     }
     const bookingsListEl = document.getElementById('my-bookings-list');
     if (bookingsListEl) {

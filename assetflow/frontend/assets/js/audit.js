@@ -432,7 +432,7 @@ function renderWorkspaceChecklist(isViewOnly) {
   // Attach button click events inside checklist
   if (!isViewOnly) {
     document.querySelectorAll('.btn-verify-choice').forEach(btn => {
-      btn.addEventListener('click', (e) => {
+      btn.addEventListener('click', async (e) => {
         const idx = parseInt(e.target.getAttribute('data-index'), 10);
         const choice = e.target.getAttribute('data-choice');
         
