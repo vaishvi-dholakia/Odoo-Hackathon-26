@@ -53,7 +53,7 @@ async function initializeWorkspace() {
       let employeesList = [];
       try {
         const users = window.ApiService.users ? await window.ApiService.users.list() : [];
-        employeesList = users.map(u => u.fullName || u.name || u.email).filter(Boolean);
+        employeesList = users.filter(u => u.role !== 'Admin').map(u => u.fullName || u.name || u.email).filter(Boolean);
       } catch (e) {
         console.warn('Failed to load employees for dropdown');
       }
@@ -135,9 +135,16 @@ function renderAllocationsTable(allocations) {
 
   let html = '';
   const role = window.RbacService.getCurrentUserRole();
-  const canApprove = (role === 'Admin');
+  const currentUser = window.RbacService.getCurrentUser();
 
   allocations.forEach(alloc => {
+    let canApprove = false;
+    if (role === 'Admin' || role === 'Asset Manager' || role === 'AssetManager') {
+      canApprove = true;
+    } else if ((role === 'Department Head' || role === 'DepartmentHead') && alloc.department === currentUser.department) {
+      canApprove = true;
+    }
+    
     let statusClass = 'bg-warning text-dark';
     let actionButtons = '';
     
@@ -381,7 +388,7 @@ async function setupEventListeners() {
   // Approval/Rejection Actions
   $('#allocations-table').on('click', '.btn-action', async function() {
     const role = window.RbacService.getCurrentUserRole();
-    const canApprove = (role === 'Admin');
+    const canApprove = (role === 'Admin' || role === 'Asset Manager' || role === 'AssetManager' || role === 'Department Head' || role === 'DepartmentHead');
     if (!canApprove) {
       Swal.fire('Access Denied', 'You do not have permission to approve or reject allocation requests.', 'error');
       return;

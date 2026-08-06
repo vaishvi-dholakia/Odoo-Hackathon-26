@@ -92,8 +92,7 @@ function renderSidebar(isSubPage, assetPrefix, pagePrefix) {
     { name: 'Audit', icon: 'fa-clipboard-check', path: 'audit.html' },
     { name: 'Reports', icon: 'fa-chart-pie', path: 'reports.html' },
     { name: 'Notifications', icon: 'fa-bell', path: 'notifications.html' },
-    { name: 'Profile', icon: 'fa-user-gear', path: 'profile.html' },
-    { name: 'Settings', icon: 'fa-sliders', path: 'settings.html' },
+    { name: 'Profile', icon: 'fa-user-gear', path: 'profile.html' }
   ];
 
   let menuHtml = '';
@@ -224,7 +223,6 @@ function renderNavbar(isSubPage, assetPrefix, pagePrefix, currentTheme) {
               <small class="text-muted" id="navbar-email">admin@assetflow.com</small>
             </div>
             <li><a class="dropdown-item rounded-2 py-2" href="${pagePrefix}profile.html"><i class="fa-solid fa-user me-2 text-muted"></i> My Profile</a></li>
-            <li><a class="dropdown-item rounded-2 py-2" href="${pagePrefix}settings.html"><i class="fa-solid fa-sliders me-2 text-muted"></i> Settings</a></li>
             <li><hr class="dropdown-divider"></li>
             <li><a class="dropdown-item text-danger rounded-2 py-2" href="#" id="btn-logout-navbar"><i class="fa-solid fa-right-from-bracket me-2"></i> Log Out</a></li>
           </ul>

@@ -82,7 +82,6 @@ function renderAssetsTable(assets) {
         <td><span class="badge ${statusClass} rounded-pill px-2.5 py-1">${asset.status}</span></td>
         <td class="fw-medium">₹${Number(asset.value).toLocaleString()}</td>
         <td>${asset.location || '--'}</td>
-        <td>${asset.owner || '<span class="text-muted small">Unassigned</span>'}</td>
         <td>${actionsHtml}</td>
       </tr>
     `;
@@ -197,7 +196,6 @@ function setupEventListeners() {
         document.getElementById('asset-value').value = asset.value;
         document.getElementById('asset-status').value = asset.status;
         document.getElementById('asset-location').value = asset.location || '';
-        document.getElementById('asset-owner').value = asset.owner || '';
         
         const previewImg = document.getElementById('asset-img-preview');
         if (asset.photo) {
@@ -280,7 +278,6 @@ function setupEventListeners() {
       const value = document.getElementById('asset-value').value;
       const status = document.getElementById('asset-status').value;
       const location = document.getElementById('asset-location').value.trim();
-      const owner = document.getElementById('asset-owner').value.trim();
 
       let isValid = true;
 
@@ -316,7 +313,6 @@ function setupEventListeners() {
           value,
           status,
           location,
-          owner,
           photo: window.selectedAssetPhotoUrl || document.getElementById('asset-img-preview').getAttribute('src') || ''
         };
 

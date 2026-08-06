@@ -311,18 +311,33 @@ app.post('/api/allocations', authenticateToken, async (req, res) => {
     const count = countRes[0].count + 1;
     const newId = 'ALC-' + String(count).padStart(3, '0');
 
+    let status = 'Pending Approval';
+    let targetRole = 'Department Head';
+
+    if (req.user.role === 'Asset Manager' || req.user.role === 'AssetManager') {
+      status = 'Approved';
+    } else if (req.user.role === 'Department Head' || req.user.role === 'DepartmentHead') {
+      targetRole = 'Asset Manager';
+    }
+
     await db.query(
       'INSERT INTO allocations (id, assetId, assetName, allocatedTo, date, status, department) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [newId, assetId, assetName, allocatedTo, date, 'Pending Approval', req.user.department || 'IT']
+      [newId, assetId, assetName, allocatedTo, date, status, req.user.department || 'IT']
     );
 
-    // Notify Admin
-    const ntfId = 'NTF-' + Math.floor(100000 + Math.random() * 900000);
-    const timeString = new Date().toISOString().replace('T', ' ').substring(0, 16);
-    await db.query(
-      'INSERT INTO notifications (id, title, message, type, date, `read`, targetRole, targetUserEmail) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [ntfId, 'New Allocation Request', `${allocatedTo} requested allocation for ${assetName}.`, 'info', timeString, false, 'Admin', null]
-    );
+    if (status === 'Approved' && assetId && assetId !== 'null' && assetId !== 'Generic') {
+      await db.query('UPDATE assets SET owner = ?, status = "Active" WHERE id = ?', [allocatedTo, assetId]);
+    }
+
+    // Notify appropriate role
+    if (status !== 'Approved') {
+      const ntfId = 'NTF-' + Math.floor(100000 + Math.random() * 900000);
+      const timeString = new Date().toISOString().replace('T', ' ').substring(0, 16);
+      await db.query(
+        'INSERT INTO notifications (id, title, message, type, date, `read`, targetRole, targetUserEmail) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [ntfId, 'New Allocation Request', `${allocatedTo} requested allocation for ${assetName}.`, 'info', timeString, false, targetRole, null]
+      );
+    }
 
     // Audit Log
     console.log(JSON.stringify({
@@ -343,8 +358,9 @@ app.post('/api/allocations', authenticateToken, async (req, res) => {
 });
 
 app.post('/api/allocations/:id/action', authenticateToken, async (req, res) => {
-  if (req.user.role !== 'Admin') {
-    return res.status(403).json({ message: 'Access Denied: Only Admins can approve or reject allocation requests.' });
+  const role = req.user.role;
+  if (role !== 'Admin' && role !== 'Asset Manager' && role !== 'AssetManager' && role !== 'Department Head' && role !== 'DepartmentHead') {
+    return res.status(403).json({ message: 'Access Denied: You cannot approve or reject allocation requests.' });
   }
   const { id } = req.params;
   const { status, assetId } = req.body; // 'Approved', 'Rejected', 'Returned', optional assetId

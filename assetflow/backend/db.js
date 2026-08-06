@@ -38,16 +38,7 @@ async function query(sql, params) {
 async function initializeDatabase() {
   console.log('Initializing database tables...');
 
-  // Drop tables to force clean schema update
-  await query('DROP TABLE IF EXISTS notifications');
-  await query('DROP TABLE IF EXISTS audits');
-  await query('DROP TABLE IF EXISTS maintenance');
-  await query('DROP TABLE IF EXISTS allocations');
-  await query('DROP TABLE IF EXISTS bookings');
-  await query('DROP TABLE IF EXISTS assets');
-  await query('DROP TABLE IF EXISTS users');
-  await query('DROP TABLE IF EXISTS organization');
-  await query('DROP TABLE IF EXISTS departments');
+  // Note: Tables will only be created if they do not exist. Data will persist across restarts.
   
   // 1. Departments Table
   await query(`

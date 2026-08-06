@@ -5,7 +5,7 @@
 
 const permissions = {
   'Admin': {
-    pages: ['dashboard.html', 'org-setup.html', 'assets.html', 'allocation.html', 'booking.html', 'maintenance.html', 'audit.html', 'reports.html', 'notifications.html', 'profile.html', 'settings.html'],
+    pages: ['dashboard.html', 'org-setup.html', 'assets.html', 'allocation.html', 'booking.html', 'maintenance.html', 'audit.html', 'reports.html', 'notifications.html', 'profile.html'],
     actions: [
       'register_asset', 'create_department', 'add_category', 'start_audit', 'view_reports', 
       'allocate_asset', 'approve_transfer', 'approve_maintenance', 'book_resource', 
