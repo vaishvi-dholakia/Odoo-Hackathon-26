@@ -27,10 +27,14 @@ function initCalendar() {
 
   calendar = new FullCalendar.Calendar(calendarEl, {
     initialView: 'dayGridMonth',
+    height: 480,
+    expandRows: true,
+    aspectRatio: 1.5,
+    fixedWeekCount: false,
     headerToolbar: {
       left: 'prev,next today',
       center: 'title',
-      right: 'dayGridMonth,timeGridWeek,timeGridDay'
+      right: 'dayGridMonth,timeGridWeek'
     },
     events: [],
     eventContent: function(arg) {
@@ -39,9 +43,9 @@ function initCalendar() {
       return {
         html: `
           <div class="p-1 overflow-hidden" style="line-height: 1.2; white-space: normal; word-break: break-word;">
-            <div class="fw-bold" style="font-size: 0.7rem;"><i class="fa-regular fa-clock me-1"></i>${b.startTime} - ${b.endTime}</div>
-            <div class="fw-semibold" style="font-size: 0.75rem;">${escapeHtml(b.resourceName)}</div>
-            <div style="font-size: 0.7rem; opacity: 0.9;">By: ${escapeHtml(b.bookedBy)}</div>
+            <div class="fw-bold" style="font-size: 0.68rem;"><i class="fa-regular fa-clock me-1"></i>${b.startTime}-${b.endTime}</div>
+            <div class="fw-semibold" style="font-size: 0.72rem;">${escapeHtml(b.resourceName)}</div>
+            <div style="font-size: 0.68rem; opacity: 0.9;">By: ${escapeHtml(b.bookedBy)}</div>
           </div>
         `
       };
@@ -71,46 +75,47 @@ async function loadResourceOptions() {
   try {
     const assets = await window.ApiService.assets.list();
     const modalSelect = document.getElementById('booking-resource');
-    const timelineSelect = document.getElementById('timeline-resource-select');
+    const quickSelect = document.getElementById('quick-booking-resource');
 
     let optionsHtml = '<option value="">Choose a resource...</option>';
-    let timelineOptionsHtml = '<option value="" selected disabled>Select a Resource</option>';
 
     if (assets && assets.length > 0) {
       assets.forEach(ast => {
         const typeLabel = ast.type ? ` (${escapeHtml(ast.type)})` : '';
         optionsHtml += `<option value="${escapeHtml(ast.name)}">${escapeHtml(ast.name)}${typeLabel}</option>`;
-        timelineOptionsHtml += `<option value="${escapeHtml(ast.name)}">${escapeHtml(ast.name)}</option>`;
       });
     } else {
       optionsHtml = '<option value="">No registered assets available</option>';
-      timelineOptionsHtml = '<option value="" selected disabled>No resources registered</option>';
     }
 
     if (modalSelect) modalSelect.innerHTML = optionsHtml;
-    if (timelineSelect) timelineSelect.innerHTML = timelineOptionsHtml;
+    if (quickSelect) quickSelect.innerHTML = optionsHtml;
+
+    // Default quick booking date to today
+    const quickDate = document.getElementById('quick-booking-date');
+    if (quickDate && !quickDate.value) {
+      quickDate.value = new Date().toISOString().split('T')[0];
+    }
   } catch (err) {
     console.error("Failed to load resource options:", err);
   }
 }
 
+let allBookingsList = [];
+
 async function loadBookings() {
   try {
     const bookings = await window.ApiService.bookings.list();
+    allBookingsList = bookings;
     const role = window.RbacService.getCurrentUserRole();
-    const user = window.RbacService.getCurrentUser();
-    const currentUserName = user ? (user.name || user.fullName) : '';
-    
-    // Allow all roles to see all bookings to prevent scheduling conflicts
-    const filteredBookings = bookings;
-    
+
     // 1. Populate Calendar Events with dynamic color palette
     const colorPalette = ['#2563EB', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4', '#6366F1'];
     const resourceColorMap = {};
     let colorIdx = 0;
 
     const events = [];
-    filteredBookings.forEach(b => {
+    bookings.forEach(b => {
       if (!resourceColorMap[b.resourceName]) {
         resourceColorMap[b.resourceName] = colorPalette[colorIdx % colorPalette.length];
         colorIdx++;
@@ -133,28 +138,24 @@ async function loadBookings() {
       calendar.addEventSource(events);
     }
 
-    // 2. Populate All Bookings list in the sidebar
-    const listTitleEl = document.querySelector('.card-custom h5 i.fa-clock-history')?.parentElement;
-    if (listTitleEl) {
-      listTitleEl.innerHTML = `<i class="fa-solid fa-clock-history me-2 text-primary"></i>All Bookings`;
-    }
+    // 2. Populate Active Bookings List
     const bookingsListEl = document.getElementById('my-bookings-list');
     if (bookingsListEl) {
       let listHtml = '';
-      if (filteredBookings.length === 0) {
+      if (bookings.length === 0) {
         listHtml = `
-          <div class="empty-state py-4">
+          <div class="empty-state py-4 text-center">
             <i class="fa-solid fa-calendar-xmark d-block fs-3 mb-2 text-muted"></i>
             <p class="text-muted small mb-0">No bookings scheduled.</p>
           </div>
         `;
       } else {
-        filteredBookings.forEach(b => {
+        bookings.forEach(b => {
           let cancelBtnHtml = '';
           if (b.status === 'Confirmed' && role !== 'Employee') {
             cancelBtnHtml = `
               <button class="btn btn-sm btn-link text-danger text-decoration-none fw-semibold p-0 btn-cancel-booking" data-id="${b.id}">
-                Cancel Booking
+                Cancel
               </button>
             `;
           }
@@ -163,12 +164,12 @@ async function loadBookings() {
           if (b.status === 'Cancelled') statusBadge = 'bg-danger';
 
           listHtml += `
-            <div class="border-bottom pb-3 mb-3 last-no-border">
+            <div class="border-bottom pb-2 mb-2 last-no-border">
               <div class="d-flex justify-content-between align-items-start mb-1">
-                <span class="fw-semibold text-dark-custom" style="color: var(--text-color);">${escapeHtml(b.resourceName)}</span>
-                <span class="badge ${statusBadge} rounded-pill px-2 py-0.5" style="font-size:0.7rem;">${b.status}</span>
+                <span class="fw-semibold text-dark-custom fs-7" style="color: var(--text-color);">${escapeHtml(b.resourceName)}</span>
+                <span class="badge ${statusBadge} rounded-pill px-2 py-0.5" style="font-size:0.68rem;">${b.status}</span>
               </div>
-              <p class="text-muted small mb-1.5"><i class="fa-regular fa-clock me-1"></i>${b.date} (${b.startTime} - ${b.endTime})</p>
+              <p class="text-muted small mb-1 fs-8"><i class="fa-regular fa-clock me-1"></i>${b.date} (${b.startTime} - ${b.endTime})</p>
               <div class="d-flex justify-content-between align-items-center">
                 <small class="text-muted fs-8">By: ${escapeHtml(b.bookedBy)}</small>
                 ${cancelBtnHtml}
@@ -180,12 +181,247 @@ async function loadBookings() {
       bookingsListEl.innerHTML = listHtml;
     }
 
+    // 3. Trigger Live Conflict Check
+    checkConflictAndRenderTimeline();
+
   } catch (err) {
     console.error(err);
   }
 }
 
+function runAiResourceDetection(selectedResource) {
+  const cardEl = document.getElementById('ai-resource-detection-card');
+  const countBadge = document.getElementById('ai-booking-count-badge');
+  const scheduleList = document.getElementById('ai-resource-booking-schedule-list');
+
+  if (!cardEl || !countBadge || !scheduleList) return;
+
+  if (!selectedResource) {
+    cardEl.classList.add('d-none');
+    return;
+  }
+
+  cardEl.classList.remove('d-none');
+
+  // Filter confirmed bookings for this specific resource
+  const resBookings = allBookingsList.filter(b => 
+    b.status === 'Confirmed' && 
+    b.resourceName.toLowerCase().includes(selectedResource.toLowerCase())
+  );
+
+  countBadge.textContent = `${resBookings.length} Active Booking(s)`;
+
+  if (resBookings.length === 0) {
+    scheduleList.innerHTML = `
+      <div class="p-3 text-success fs-7 fw-bold bg-success-subtle rounded-3 border border-success-subtle d-flex align-items-center gap-2">
+        <i class="fa-solid fa-circle-check fs-5 text-success"></i>
+        <div>
+          <div class="fw-bold">100% Available</div>
+          <div class="fw-normal fs-8 opacity-75">No active reservations found for this resource.</div>
+        </div>
+      </div>
+    `;
+  } else {
+    let listHtml = '';
+    resBookings.forEach(b => {
+      listHtml += `
+        <div class="p-3 mb-2 rounded-3 border border-danger-subtle bg-white shadow-sm d-flex flex-column gap-2" style="border-left: 4px solid #EF4444 !important; overflow: hidden;">
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <span class="badge bg-danger text-white px-2.5 py-1 fs-7 fw-bold rounded-pill text-truncate" style="max-width: 100%;">
+              <i class="fa-solid fa-user me-1"></i>Booked by ${escapeHtml(b.bookedBy)}
+            </span>
+            <span class="fs-7 fw-bold text-danger"><i class="fa-solid fa-calendar-day me-1"></i>${b.date}</span>
+          </div>
+
+          <div class="d-flex align-items-center flex-wrap gap-2 pt-1">
+            <span class="fw-semibold text-muted fs-7"><i class="fa-regular fa-clock me-1 text-danger"></i>Time Window:</span>
+            <span class="bg-danger-subtle text-danger px-2.5 py-1 rounded-2 border border-danger-subtle fw-bold fs-7">${b.startTime} — ${b.endTime}</span>
+          </div>
+        </div>
+      `;
+    });
+    scheduleList.innerHTML = listHtml;
+  }
+}
+
+function checkConflictAndRenderTimeline() {
+  const resourceEl = document.getElementById('quick-booking-resource');
+  const dateEl = document.getElementById('quick-booking-date');
+  const startEl = document.getElementById('quick-booking-start');
+  const endEl = document.getElementById('quick-booking-end');
+  const alertEl = document.getElementById('quick-booking-conflict-alert');
+  const gridEl = document.getElementById('visual-time-slot-grid');
+  const submitBtn = document.getElementById('btn-quick-reserve');
+
+  if (!resourceEl || !dateEl || !startEl || !endEl || !alertEl || !gridEl) return;
+
+  const selectedResource = resourceEl.value;
+  const selectedDate = dateEl.value;
+  const startTime = startEl.value;
+  const endTime = endEl.value;
+
+  // Run AI Detection for selected resource
+  runAiResourceDetection(selectedResource);
+
+  if (!selectedResource || !selectedDate) {
+    alertEl.classList.add('d-none');
+    gridEl.innerHTML = '<span class="text-muted fs-8 italic">Select a resource and date to inspect slots...</span>';
+    if (submitBtn) submitBtn.disabled = false;
+    return;
+  }
+
+  // Filter confirmed bookings for this resource & date
+  const dayBookings = allBookingsList.filter(b => 
+    b.status === 'Confirmed' &&
+    b.resourceName === selectedResource &&
+    b.date === selectedDate
+  );
+
+  // 1. Render Visual Hourly Slots Grid (8 AM to 6 PM)
+  const hours = [
+    { label: '8 AM', start: '08:00', end: '09:00' },
+    { label: '9 AM', start: '09:00', end: '10:00' },
+    { label: '10 AM', start: '10:00', end: '11:00' },
+    { label: '11 AM', start: '11:00', end: '12:00' },
+    { label: '12 PM', start: '12:00', end: '13:00' },
+    { label: '1 PM', start: '13:00', end: '14:00' },
+    { label: '2 PM', start: '14:00', end: '15:00' },
+    { label: '3 PM', start: '15:00', end: '16:00' },
+    { label: '4 PM', start: '16:00', end: '17:00' },
+    { label: '5 PM', start: '17:00', end: '18:00' }
+  ];
+
+  let gridHtml = '';
+  hours.forEach(h => {
+    const isBooked = dayBookings.some(b => (h.start < b.endTime && h.end > b.startTime));
+    if (isBooked) {
+      const bObj = dayBookings.find(b => (h.start < b.endTime && h.end > b.startTime));
+      const bookedByName = bObj ? bObj.bookedBy : 'Staff';
+      gridHtml += `
+        <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1 fs-8 slot-badge" title="Booked by ${escapeHtml(bookedByName)}" style="cursor: not-allowed;">
+          <i class="fa-solid fa-lock me-1"></i>${h.label}
+        </span>
+      `;
+    } else {
+      gridHtml += `
+        <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 fs-8 slot-badge btn-select-time-slot" data-start="${h.start}" data-end="${h.end}" style="cursor: pointer;" title="Click to select this slot">
+          <i class="fa-solid fa-check me-1"></i>${h.label}
+        </span>
+      `;
+    }
+  });
+  gridEl.innerHTML = gridHtml;
+
+  // 2. Real-Time Conflict Detection for current selected time window
+  if (startTime && endTime) {
+    const conflict = dayBookings.find(b => (startTime < b.endTime && endTime > b.startTime));
+    
+    if (conflict) {
+      alertEl.className = 'alert alert-danger py-2 px-3 mt-3 mb-3.5 rounded-2 border-danger d-block';
+      alertEl.style.fontSize = '0.78rem';
+      alertEl.innerHTML = `
+        <div class="d-flex align-items-start gap-2">
+          <i class="fa-solid fa-triangle-exclamation text-danger mt-0.5 fs-7"></i>
+          <div>
+            <div class="fw-bold text-danger">⚠️ Scheduling Conflict Detected</div>
+            <div><strong>${escapeHtml(selectedResource)}</strong> is reserved by <strong>${escapeHtml(conflict.bookedBy)}</strong> (${conflict.startTime} - ${conflict.endTime}).</div>
+          </div>
+        </div>
+      `;
+      if (submitBtn) submitBtn.disabled = true;
+    } else {
+      alertEl.className = 'alert alert-success py-1.5 px-3 mt-3 mb-3.5 rounded-2 border-success d-block';
+      alertEl.style.fontSize = '0.78rem';
+      alertEl.innerHTML = `
+        <div class="d-flex align-items-center gap-2 text-success">
+          <i class="fa-solid fa-circle-check fs-7"></i>
+          <span class="fw-semibold">Slot Available! No conflicts detected for this time.</span>
+        </div>
+      `;
+      if (submitBtn) submitBtn.disabled = false;
+    }
+  }
+}
+
 function setupEventListeners() {
+  // Live input listeners for Smart Conflict Detector
+  ['quick-booking-resource', 'quick-booking-date', 'quick-booking-start', 'quick-booking-end'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('change', checkConflictAndRenderTimeline);
+      el.addEventListener('keyup', checkConflictAndRenderTimeline);
+      el.addEventListener('input', checkConflictAndRenderTimeline);
+    }
+  });
+
+  // Handle clicking visual time slot badges
+  const gridEl = document.getElementById('visual-time-slot-grid');
+  if (gridEl) {
+    gridEl.addEventListener('click', (e) => {
+      const badge = e.target.closest('.btn-select-time-slot');
+      if (!badge) return;
+      const start = badge.getAttribute('data-start');
+      const end = badge.getAttribute('data-end');
+      if (start && end) {
+        document.getElementById('quick-booking-start').value = start;
+        document.getElementById('quick-booking-end').value = end;
+        checkConflictAndRenderTimeline();
+      }
+    });
+  }
+  // Quick Reserve Form Submission
+  const quickForm = document.getElementById('quick-booking-form');
+  if (quickForm) {
+    quickForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const resourceName = document.getElementById('quick-booking-resource').value;
+      const date = document.getElementById('quick-booking-date').value;
+      const startTime = document.getElementById('quick-booking-start').value;
+      const endTime = document.getElementById('quick-booking-end').value;
+
+      if (!resourceName) {
+        Swal.fire('Validation Error', 'Please select a resource to reserve.', 'warning');
+        return;
+      }
+      if (!date || !startTime || !endTime) {
+        Swal.fire('Validation Error', 'Please complete date and time slots.', 'warning');
+        return;
+      }
+
+      const user = window.RbacService.getCurrentUser() || {};
+      const bookedBy = user.fullName || user.name || user.email || 'Staff Member';
+
+      window.AssetFlowLoader.show();
+      try {
+        await window.ApiService.bookings.create({
+          resourceName,
+          bookedBy,
+          date,
+          startTime,
+          endTime,
+          department: user.department || 'General'
+        });
+
+        Swal.fire({
+          title: 'Resource Reserved!',
+          text: `Successfully reserved ${resourceName} for ${date} (${startTime} - ${endTime}).`,
+          icon: 'success',
+          confirmButtonColor: '#2563EB'
+        });
+
+        quickForm.reset();
+        const quickDate = document.getElementById('quick-booking-date');
+        if (quickDate) quickDate.value = new Date().toISOString().split('T')[0];
+
+        await loadBookings();
+      } catch (err) {
+        Swal.fire('Booking Conflict', err.message || 'Time slot is unavailable.', 'error');
+      } finally {
+        window.AssetFlowLoader.hide();
+      }
+    });
+  }
+
   // Modal open
   const openBtn = document.getElementById('btn-open-booking-modal');
   if (openBtn) {

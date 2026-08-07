@@ -165,6 +165,18 @@ const ApiService = {
     }
   },
 
+  // --- USER SERVICES ---
+  users: {
+    list: async () => {
+      try {
+        const res = await api.get('/users');
+        return res.data;
+      } catch (err) {
+        return handleApiError(err);
+      }
+    }
+  },
+
   // --- ORGANIZATION SERVICES ---
   organization: {
     get: async () => {
@@ -306,6 +318,18 @@ const ApiService = {
     updateStatus: async (id, status) => {
       try {
         const res = await api.put(`/maintenance/${id}/status`, { status });
+        return res.data;
+      } catch (err) {
+        return handleApiError(err);
+      }
+    }
+  },
+
+  // --- REPORTS & ANALYTICS SERVICES ---
+  reports: {
+    getAnalytics: async () => {
+      try {
+        const res = await api.get('/reports/analytics');
         return res.data;
       } catch (err) {
         return handleApiError(err);

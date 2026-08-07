@@ -75,12 +75,12 @@ async function loadMaintenanceData() {
     // 1. Calculate statistics
     const pendingCount = currentLogs.filter(l => l.status === 'Pending').length;
     const completedCount = currentLogs.filter(l => l.status === 'Completed' || l.status === 'Resolved').length;
-    const totalCost = currentLogs.reduce((sum, log) => sum + (Number(log.cost) || 0), 0);
+    const totalCost = currentLogs.reduce((sum, log) => sum + (parseFloat(log.cost) || 0), 0);
 
     // Update stats UI
     document.getElementById('count-pending-maint').textContent = pendingCount;
     document.getElementById('count-completed-maint').textContent = completedCount;
-    document.getElementById('val-total-maint-cost').textContent = `₹${totalCost.toLocaleString()}`;
+    document.getElementById('val-total-maint-cost').textContent = `₹ ${totalCost.toLocaleString('en-IN')}`;
 
     // 2. Render Kanban & Table Views
     renderMaintenanceTable(currentLogs);
@@ -130,6 +130,8 @@ function renderMaintenanceTable(logs) {
       `;
     }
 
+    const logCostVal = parseFloat(log.cost) || 0;
+
     html += `
       <tr data-id="${log.id}">
         <td><strong class="text-primary">${log.id}</strong></td>
@@ -139,7 +141,7 @@ function renderMaintenanceTable(logs) {
         </td>
         <td>${log.type}</td>
         <td><span class="text-truncate-2 small" style="max-width:200px;" title="${log.description || ''}">${log.description || '--'}</span></td>
-        <td class="fw-medium">₹${Number(log.cost).toLocaleString()}</td>
+        <td class="fw-bold text-success">₹ ${logCostVal.toLocaleString('en-IN')}</td>
         <td>${log.date}</td>
         <td><span class="badge ${statusClass} rounded-pill px-2.5 py-1">${displayStatus}</span></td>
         <td>${actionBtn}</td>
@@ -205,7 +207,8 @@ function renderKanbanBoard(logs) {
       }
     }
 
-    const costHtml = log.cost ? `<span class="badge bg-secondary-subtle text-dark-custom fs-8">₹${Number(log.cost).toLocaleString()}</span>` : '';
+    const costVal = parseFloat(log.cost) || 0;
+    const costHtml = `<span class="badge bg-success-subtle text-success border border-success-subtle fs-8 fw-bold">₹ ${costVal.toLocaleString('en-IN')}</span>`;
 
     const html = `
       <div class="${cardClass}" draggable="${isDraggable}" ondragstart="drag(event, '${log.id}')" data-id="${log.id}">

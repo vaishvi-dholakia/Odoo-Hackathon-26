@@ -11,17 +11,12 @@ let chartMaintFreq = null;
 document.addEventListener('DOMContentLoaded', async () => {
   window.AssetFlowLoader.show();
   try {
-    // Default dates
-    const end = new Date().toISOString().split('T')[0];
-    const start = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]; // -30 days
-    document.getElementById('report-start').value = start;
-    document.getElementById('report-end').value = end;
-
-    await generateReport();
+    // Render live charts & metrics first
     await renderMockupWidgets();
+    await generateReport();
     setupEventListeners();
   } catch (err) {
-    console.error(err);
+    console.error("Reports initialization error:", err);
   } finally {
     window.AssetFlowLoader.hide();
   }
@@ -30,74 +25,195 @@ document.addEventListener('DOMContentLoaded', async () => {
 async function renderMockupWidgets() {
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
   const textColor = isDark ? '#94A3B8' : '#64748B';
-  const gridColor = isDark ? '#334155' : '#E2E8F0';
 
-  // 1. Utilization by Dept Chart
-  const ctxUtil = document.getElementById('chart-utilization-dept').getContext('2d');
-  if (chartUtilization) chartUtilization.destroy();
-  chartUtilization = new Chart(ctxUtil, {
-    type: 'bar',
-    data: {
-      labels: [],
-      datasets: [{
-        label: 'Allocated Assets',
-        data: [],
-        backgroundColor: '#2563EB',
-        borderRadius: 6
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
-      scales: {
-        x: { grid: { color: gridColor }, ticks: { color: textColor } },
-        y: { grid: { color: gridColor }, ticks: { color: textColor } }
+  try {
+    let analytics = null;
+    try {
+      analytics = await window.ApiService.reports.getAnalytics();
+    } catch (e) {
+      console.warn("Analytics endpoint fetch error:", e);
+    }
+    
+    // Fallback if endpoint returns null/undefined or fails
+    if (!analytics || typeof analytics !== 'object' || typeof analytics.totalAssetsCount !== 'number') {
+      console.warn("Computing analytics client-side from live DB tables...");
+      const [assets, maintenance, bookings, allocations] = await Promise.all([
+        window.ApiService.assets.list().catch(() => []),
+        window.ApiService.maintenance.list().catch(() => []),
+        window.ApiService.bookings.list().catch(() => []),
+        window.ApiService.allocations.list().catch(() => [])
+      ]);
+
+      const assetList = Array.isArray(assets) ? assets : [];
+      const maintList = Array.isArray(maintenance) ? maintenance : [];
+      const bookingList = Array.isArray(bookings) ? bookings : [];
+      const allocList = Array.isArray(allocations) ? allocations : [];
+
+      const totalValuation = assetList.reduce((sum, a) => sum + (parseFloat(a.cost || a.value) || 0), 0);
+      const totalMaintenanceCost = maintList.reduce((sum, m) => sum + (parseFloat(m.cost) || 0), 0);
+
+      const deptMap = {};
+      assetList.forEach(a => {
+        const dept = a.department || 'General';
+        deptMap[dept] = (deptMap[dept] || 0) + 1;
+      });
+
+      const statusMap = {};
+      assetList.forEach(a => {
+        const st = a.status || 'Active';
+        statusMap[st] = (statusMap[st] || 0) + 1;
+      });
+
+      const usageMap = {};
+      bookingList.forEach(b => {
+        if (b.resourceName) {
+          usageMap[b.resourceName] = (usageMap[b.resourceName] || 0) + 1;
+        }
+      });
+      allocList.forEach(al => {
+        if (al.assetName) {
+          usageMap[al.assetName] = (usageMap[al.assetName] || 0) + 1;
+        }
+      });
+
+      const mostUsedList = Object.keys(usageMap)
+        .map(name => ({ name, count: usageMap[name] }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5);
+
+      const idleList = assetList
+        .filter(a => !a.owner && a.status !== 'Disposed')
+        .slice(0, 5)
+        .map(a => ({ id: a.id, name: a.name, location: a.location || 'Central Stock' }));
+
+      analytics = {
+        totalValuation,
+        totalMaintenanceCost,
+        totalAssetsCount: assetList.length,
+        deptDistribution: deptMap,
+        statusDistribution: statusMap,
+        mostUsedList,
+        idleList
+      };
+    }
+
+    // 1. Update KPI Values
+    const totalPort = document.getElementById('val-total-portfolio');
+    const totalAssets = document.getElementById('val-total-assets');
+    const totalMaint = document.getElementById('val-total-maint-cost');
+
+    if (totalPort) totalPort.textContent = '₹ ' + (analytics.totalValuation || 0).toLocaleString('en-IN');
+    if (totalAssets) totalAssets.textContent = (analytics.totalAssetsCount || 0);
+    if (totalMaint) totalMaint.textContent = '₹ ' + (analytics.totalMaintenanceCost || 0).toLocaleString('en-IN');
+
+    // 2. Department Asset Distribution Chart (Doughnut)
+    const deptLabels = Object.keys(analytics.deptDistribution || {});
+    const deptData = Object.values(analytics.deptDistribution || {});
+
+    const ctxUtil = document.getElementById('chart-utilization-dept').getContext('2d');
+    if (chartUtilization) chartUtilization.destroy();
+    chartUtilization = new Chart(ctxUtil, {
+      type: 'doughnut',
+      data: {
+        labels: deptLabels.length > 0 ? deptLabels : ['General'],
+        datasets: [{
+          data: deptData.length > 0 ? deptData : [1],
+          backgroundColor: ['#2563EB', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#06B6D4']
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'right', labels: { color: textColor } }
+        }
+      }
+    });
+
+    // 3. Asset Status Breakdown Chart (Bar)
+    const statusLabels = Object.keys(analytics.statusDistribution || {});
+    const statusData = Object.values(analytics.statusDistribution || {});
+
+    const ctxFreq = document.getElementById('chart-maintenance-freq').getContext('2d');
+    if (chartMaintFreq) chartMaintFreq.destroy();
+    chartMaintFreq = new Chart(ctxFreq, {
+      type: 'bar',
+      data: {
+        labels: statusLabels.length > 0 ? statusLabels : ['Active'],
+        datasets: [{
+          label: 'Asset Count',
+          data: statusData.length > 0 ? statusData : [0],
+          backgroundColor: ['#10B981', '#F59E0B', '#EF4444', '#64748B'],
+          borderRadius: 6
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: textColor } },
+          y: { ticks: { color: textColor }, beginAtZero: true }
+        }
+      }
+    });
+
+    // 4. 🔥 Most Used Assets & Resources Ranking List
+    const listMostUsed = document.getElementById('list-most-used');
+    if (listMostUsed) {
+      const items = analytics.mostUsedList || [];
+      if (items.length === 0) {
+        listMostUsed.innerHTML = `<div class="p-3 text-center text-muted fs-7 italic border rounded-3 bg-body-tertiary">No asset allocations or bookings logged yet.</div>`;
+      } else {
+        let html = '';
+        const rankBadges = ['bg-warning text-dark', 'bg-secondary text-white', 'bg-danger text-white', 'bg-primary text-white', 'bg-info text-dark'];
+        items.forEach((item, index) => {
+          html += `
+            <div class="p-2.5 rounded-3 border bg-body-tertiary d-flex justify-content-between align-items-center">
+              <div class="d-flex align-items-center gap-2.5">
+                <span class="badge ${rankBadges[index] || 'bg-secondary'} rounded-circle p-2 fs-8 fw-bold" style="width:24px; height:24px; display:inline-flex; align-items:center; justify-content:center;">${index + 1}</span>
+                <div>
+                  <div class="fw-bold fs-7 text-body">${escapeHtml(item.name)}</div>
+                  <small class="text-muted fs-8"><i class="fa-solid fa-chart-line me-1 text-danger"></i>High Demand Resource</small>
+                </div>
+              </div>
+              <span class="badge bg-danger text-white px-2.5 py-1 rounded-pill fs-7 fw-bold">
+                <i class="fa-solid fa-repeat me-1"></i>${item.count} Use(s)
+              </span>
+            </div>
+          `;
+        });
+        listMostUsed.innerHTML = html;
       }
     }
-  });
 
-  // 2. Maintenance Frequency Chart
-  const ctxFreq = document.getElementById('chart-maintenance-freq').getContext('2d');
-  if (chartMaintFreq) chartMaintFreq.destroy();
-  chartMaintFreq = new Chart(ctxFreq, {
-    type: 'line',
-    data: {
-      labels: [],
-      datasets: [{
-        label: 'Tasks Logged',
-        data: [],
-        borderColor: '#EF4444',
-        backgroundColor: 'rgba(239, 68, 68, 0.1)',
-        tension: 0.3,
-        fill: true
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
-      scales: {
-        x: { grid: { color: gridColor }, ticks: { color: textColor } },
-        y: { grid: { color: gridColor }, ticks: { color: textColor } }
+    // 5. 📦 Idle Assets Available in Stock List
+    const listIdle = document.getElementById('list-idle-assets');
+    if (listIdle) {
+      const idleItems = analytics.idleList || [];
+      if (idleItems.length === 0) {
+        listIdle.innerHTML = `<div class="p-3 text-center text-muted fs-7 italic border rounded-3 bg-body-tertiary">All assets currently allocated.</div>`;
+      } else {
+        let idleHtml = '';
+        idleItems.forEach(item => {
+          idleHtml += `
+            <div class="p-2.5 rounded-3 border bg-body-tertiary d-flex justify-content-between align-items-center">
+              <div class="d-flex align-items-center gap-2">
+                <i class="fa-solid fa-box text-primary fs-6"></i>
+                <div>
+                  <div class="fw-bold fs-7 text-body">${escapeHtml(item.name)} <span class="badge bg-primary-subtle text-primary ms-1 fs-8">${escapeHtml(item.id)}</span></div>
+                  <small class="text-muted fs-8"><i class="fa-solid fa-location-dot me-1 text-muted"></i>${escapeHtml(item.location)}</small>
+                </div>
+              </div>
+              <span class="badge bg-success-subtle text-success px-2.5 py-1 rounded-pill fs-8 fw-bold">Available</span>
+            </div>
+          `;
+        });
+        listIdle.innerHTML = idleHtml;
       }
     }
-  });
-
-  // 3. Lists
-  const listMostUsed = document.getElementById('list-most-used');
-  if (listMostUsed) {
-    listMostUsed.innerHTML = `<div class="p-2 text-center text-muted small border rounded">No data available</div>`;
-  }
-
-  const listIdle = document.getElementById('list-idle-assets');
-  if (listIdle) {
-    listIdle.innerHTML = `<div class="p-2 text-center text-muted small border rounded">No data available</div>`;
-  }
-
-  const listDue = document.getElementById('list-due-maint');
-  if (listDue) {
-    listDue.innerHTML = `<div class="p-2 text-center text-muted small border rounded">No data available</div>`;
+  } catch (err) {
+    console.error(err);
   }
 }
 
@@ -202,9 +318,9 @@ function setupEventListeners() {
 }
 
 async function generateReport() {
-  const type = document.getElementById('report-type').value;
-  const start = document.getElementById('report-start').value;
-  const end = document.getElementById('report-end').value;
+  const typeEl = document.getElementById('report-type');
+  if (!typeEl) return;
+  const type = typeEl.value;
 
   const headerRow = document.getElementById('report-table-header');
   const body = document.getElementById('report-table-body');
@@ -221,8 +337,9 @@ async function generateReport() {
 
   if (reportChart) reportChart.destroy();
 
+  const titleEl = document.getElementById('report-chart-title');
   if (type === 'valuation') {
-    document.getElementById('report-chart-title').textContent = 'Asset Inventory Cost Valuation';
+    if (titleEl) titleEl.textContent = 'Asset Inventory Cost Valuation';
     
     // Fetch
     const assets = await window.ApiService.assets.list();

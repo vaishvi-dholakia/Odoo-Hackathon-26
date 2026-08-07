@@ -71,8 +71,10 @@
               <!-- Standard Allocation Form -->
               <div id="workspace-standard-alloc-form" class="d-none">
                 <div class="mb-3">
-                  <label for="workspace-alloc-to" class="form-label-custom">Allocate To (Employee)</label>
-                  <input type="text" id="workspace-alloc-to" class="form-control form-control-custom" placeholder="Enter employee name...">
+                  <label for="workspace-alloc-to" class="form-label-custom" id="lbl-workspace-alloc-to">Allocate To Department <span class="text-danger">*</span></label>
+                  <select id="workspace-alloc-to" class="form-select form-control-custom">
+                    <option value="">Select department...</option>
+                  </select>
                 </div>
                 <div class="mb-3">
                   <label for="workspace-alloc-date" class="form-label-custom">Expected Return Date</label>
@@ -88,13 +90,13 @@
                 <h6 class="fw-bold text-muted border-bottom pb-2 mb-3">Transfer Request</h6>
                 <div class="row g-2 mb-3">
                   <div class="col-6">
-                    <label class="form-label-custom text-muted small">From</label>
+                    <label class="form-label-custom text-muted small">From Department</label>
                     <input type="text" id="workspace-transfer-from" class="form-control form-control-custom" readonly>
                   </div>
                   <div class="col-6">
-                    <label for="workspace-transfer-to" class="form-label-custom text-muted small">To</label>
+                    <label for="workspace-transfer-to" class="form-label-custom text-muted small">Target Department</label>
                     <select id="workspace-transfer-to" class="form-select form-control-custom">
-                      <!-- Dynamic list of employees -->
+                      <option value="">Select department...</option>
                     </select>
                   </div>
                 </div>
@@ -109,36 +111,82 @@
 
               <!-- Allocation History Section -->
               <div class="mt-4 pt-3 border-top d-none" id="workspace-alloc-history-section">
-                <h6 class="fw-bold mb-3">Allocation history</h6>
-                <div id="workspace-alloc-history-list" class="small text-muted d-flex flex-column gap-2">
-                  <!-- e.g. "Mar 12 - Allocated to Priya shah - Engineering" -->
+                <h6 class="fw-bold fs-7 text-uppercase text-muted mb-2">Allocation history</h6>
+                <div id="workspace-alloc-history-list" class="small text-muted">
+                  <!-- History injected dynamically -->
                 </div>
               </div>
 
             </div>
           </div>
 
-          <!-- Active Allocations Table (Right column) -->
+          <!-- Active Allocations Table (Right column with 2-Tab Navigation) -->
           <div class="col-lg-7">
-            <div class="card-custom mb-0 h-100">
-              <h5 class="fw-bold mb-3"><i class="fa-solid fa-list text-primary me-2"></i>Active Requests Ledger</h5>
-              <div class="table-custom-wrapper">
-                <table class="table-custom" id="allocations-table">
-                  <thead>
-                    <tr>
-                      <th>Request ID</th>
-                      <th>Asset ID</th>
-                      <th>Asset Name</th>
-                      <th>Allocated To</th>
-                      <th>Allocation Date</th>
-                      <th>Status</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <!-- Injected dynamically -->
-                  </tbody>
-                </table>
+            <div class="card-custom">
+              <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2 border-bottom pb-2">
+                <!-- Navigation Pills for Department Queue vs My Requests -->
+                <ul class="nav nav-pills gap-1" id="allocations-tab" role="tablist">
+                  <li class="nav-item" role="presentation">
+                    <button class="nav-link active px-3 py-1.5 fs-7 fw-bold" id="tab-dept-queue" data-bs-toggle="tab" data-bs-target="#panel-dept-queue" type="button" role="tab">
+                      <i class="fa-solid fa-list-check me-1.5 text-primary"></i>Department Queue
+                    </button>
+                  </li>
+                  <li class="nav-item" role="presentation">
+                    <button class="nav-link px-3 py-1.5 fs-7 fw-bold" id="tab-my-requests" data-bs-toggle="tab" data-bs-target="#panel-my-requests" type="button" role="tab">
+                      <i class="fa-solid fa-user-tag me-1.5 text-success"></i>My Submitted Requests
+                    </button>
+                  </li>
+                </ul>
+
+                <button class="btn btn-sm btn-outline-secondary" id="btn-refresh-allocations">
+                  <i class="fa-solid fa-rotate me-1"></i>Refresh
+                </button>
+              </div>
+
+              <div class="tab-content" id="allocations-tab-content">
+                <!-- Tab Panel 1: Department Approval Queue -->
+                <div class="tab-pane fade show active" id="panel-dept-queue" role="tabpanel">
+                  <div class="table-custom-wrapper">
+                    <table class="table-custom" id="allocations-table">
+                      <thead>
+                        <tr>
+                          <th>Request ID</th>
+                          <th>Asset ID</th>
+                          <th>Asset Name</th>
+                          <th>Target Department</th>
+                          <th>Request Date</th>
+                          <th>Status</th>
+                          <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <!-- Injected dynamically -->
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <!-- Tab Panel 2: My Submitted Requests -->
+                <div class="tab-pane fade" id="panel-my-requests" role="tabpanel">
+                  <div class="table-custom-wrapper">
+                    <table class="table-custom" id="my-requests-table">
+                      <thead>
+                        <tr>
+                          <th>Request ID</th>
+                          <th>Asset ID</th>
+                          <th>Asset Name</th>
+                          <th>Target Department</th>
+                          <th>Request Date</th>
+                          <th>Status</th>
+                          <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <!-- Injected dynamically -->
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -167,8 +215,10 @@
                 </div>
 
                 <div class="mb-3">
-                  <label for="alloc-to" class="form-label-custom">Allocate To (Employee Name/Email) <span class="text-danger">*</span></label>
-                  <input type="text" id="alloc-to" class="form-control form-control-custom" placeholder="e.g. John Doe" required>
+                  <label for="alloc-to" class="form-label-custom" id="lbl-alloc-to">Allocate To Department <span class="text-danger">*</span></label>
+                  <select id="alloc-to" class="form-select form-control-custom" required>
+                    <option value="">Select department...</option>
+                  </select>
                   <div class="invalid-feedback d-block mt-1" id="alloc-to-error"></div>
                 </div>
 

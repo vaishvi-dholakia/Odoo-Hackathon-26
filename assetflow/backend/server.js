@@ -164,9 +164,6 @@ app.post('/api/auth/reset-password', async (req, res) => {
 
 // 1.5. User Management Endpoints
 app.get('/api/users', authenticateToken, async (req, res) => {
-  if (req.user.role !== 'Admin') {
-    return res.status(403).json({ message: 'Access Denied: Only administrators can view all users.' });
-  }
   try {
     const users = await db.query('SELECT email, fullName, role, department, avatar, isVerified, status, transitionDetails FROM users ORDER BY fullName ASC');
     res.json(users);
@@ -639,6 +636,68 @@ app.put('/api/audits/:id/state', authenticateToken, async (req, res) => {
 });
 
 // 8. Notification Endpoints
+app.get('/api/reports/analytics', async (req, res) => {
+  try {
+    const assets = await db.query('SELECT * FROM assets');
+    const maintenance = await db.query('SELECT * FROM maintenance');
+    const bookings = await db.query('SELECT * FROM bookings');
+    const allocations = await db.query('SELECT * FROM allocations');
+
+    // 1. Total valuation & maintenance cost
+    const totalValuation = assets.reduce((sum, a) => sum + (parseFloat(a.cost) || 0), 0);
+    const totalMaintenanceCost = maintenance.reduce((sum, m) => sum + (parseFloat(m.cost) || 0), 0);
+
+    // 2. Department distribution
+    const deptMap = {};
+    assets.forEach(a => {
+      const dept = a.department || 'Unassigned';
+      deptMap[dept] = (deptMap[dept] || 0) + 1;
+    });
+
+    // 3. Status distribution
+    const statusMap = {};
+    assets.forEach(a => {
+      const st = a.status || 'Active';
+      statusMap[st] = (statusMap[st] || 0) + 1;
+    });
+
+    // 4. Most used assets / resources (from bookings & allocations)
+    const usageMap = {};
+    bookings.forEach(b => {
+      if (b.resourceName && b.status === 'Confirmed') {
+        usageMap[b.resourceName] = (usageMap[b.resourceName] || 0) + 1;
+      }
+    });
+    allocations.forEach(al => {
+      if (al.assetName) {
+        usageMap[al.assetName] = (usageMap[al.assetName] || 0) + 1;
+      }
+    });
+
+    const mostUsedList = Object.keys(usageMap)
+      .map(name => ({ name, count: usageMap[name] }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+
+    // 5. Idle assets (In stock, no owner)
+    const idleList = assets
+      .filter(a => !a.owner && a.status !== 'Disposed')
+      .slice(0, 5)
+      .map(a => ({ id: a.id, name: a.name, location: a.location || 'Central Stock' }));
+
+    res.json({
+      totalValuation,
+      totalMaintenanceCost,
+      totalAssetsCount: assets.length,
+      deptDistribution: deptMap,
+      statusDistribution: statusMap,
+      mostUsedList,
+      idleList
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
 app.get('/api/notifications', authenticateToken, async (req, res) => {
   try {
     const notifications = await db.query(

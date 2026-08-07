@@ -23,14 +23,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 async function loadAuditCampaigns() {
   try {
-    const campaigns = await window.ApiService.audits.list();
-    
+    let campaigns = await window.ApiService.audits.list();
+    if (!Array.isArray(campaigns)) campaigns = [];
+
     // Calculate stats
     const completedCount = campaigns.filter(c => c.status === 'Completed').length;
     const activeCount = campaigns.filter(c => c.status === 'In Progress').length;
 
-    document.getElementById('val-audits-completed').textContent = completedCount;
-    document.getElementById('val-audits-active').textContent = activeCount;
+    const completedEl = document.getElementById('val-audits-completed');
+    const activeEl = document.getElementById('val-audits-active');
+    if (completedEl) completedEl.textContent = completedCount;
+    if (activeEl) activeEl.textContent = activeCount;
 
     // Render table
     renderAuditsTable(campaigns);

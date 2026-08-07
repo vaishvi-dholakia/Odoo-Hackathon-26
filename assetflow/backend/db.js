@@ -218,6 +218,9 @@ async function seedDatabase() {
     }
   }
 
+  // Clean static seeded audit campaigns if present
+  await query("DELETE FROM audits WHERE id IN ('AUD-001', 'AUD-002');");
+
   console.log('Database verified successfully.');
 }
 

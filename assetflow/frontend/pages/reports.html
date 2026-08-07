@@ -38,140 +38,147 @@
           </div>
         </div>
 
-        <!-- Filter / Parameter Selection Panel -->
-        <div class="card-custom mb-4">
-          <h6 class="fw-bold mb-3"><i class="fa-solid fa-sliders me-2 text-primary"></i>Report Parameters</h6>
-          <form id="report-parameters-form" class="row g-3 align-items-end">
-            <div class="col-md-4">
-              <label for="report-type" class="form-label-custom">Report Category</label>
-              <select id="report-type" class="form-select form-control-custom">
-                <option value="valuation">Asset Inventory Valuation</option>
-                <option value="allocations">Allocation Assignments</option>
-                <option value="maintenance">Maintenance & Repair Cost</option>
-                <option value="bookings">Resource Booking & Uptime</option>
-              </select>
+        <!-- Live KPI Statistic Cards -->
+        <div class="row g-4 mb-4">
+          <!-- Total Valuation -->
+          <div class="col-md-4">
+            <div class="card-custom mb-0">
+              <div class="d-flex align-items-center justify-content-between">
+                <div>
+                  <span class="text-muted fs-7 fw-semibold text-uppercase">Total Portfolio Valuation</span>
+                  <h3 class="fw-bold my-1 text-primary" id="val-total-portfolio">₹ 0</h3>
+                  <small class="text-muted">Live sum of asset purchase costs</small>
+                </div>
+                <div class="stat-icon bg-primary-subtle text-primary">
+                  <i class="fa-solid fa-indian-rupee-sign"></i>
+                </div>
+              </div>
             </div>
-            <div class="col-md-3">
-              <label for="report-start" class="form-label-custom">Start Date</label>
-              <input type="date" id="report-start" class="form-control form-control-custom">
+          </div>
+
+          <!-- Total Assets Count -->
+          <div class="col-md-4">
+            <div class="card-custom mb-0">
+              <div class="d-flex align-items-center justify-content-between">
+                <div>
+                  <span class="text-muted fs-7 fw-semibold text-uppercase">Total Assets Registered</span>
+                  <h3 class="fw-bold my-1 text-success" id="val-total-assets">0</h3>
+                  <small class="text-muted">Active & stock inventory items</small>
+                </div>
+                <div class="stat-icon bg-success-subtle text-success">
+                  <i class="fa-solid fa-cubes"></i>
+                </div>
+              </div>
             </div>
-            <div class="col-md-3">
-              <label for="report-end" class="form-label-custom">End Date</label>
-              <input type="date" id="report-end" class="form-control form-control-custom">
+          </div>
+
+          <!-- Total Maintenance Expenses -->
+          <div class="col-md-4">
+            <div class="card-custom mb-0">
+              <div class="d-flex align-items-center justify-content-between">
+                <div>
+                  <span class="text-muted fs-7 fw-semibold text-uppercase">Maintenance Expenses</span>
+                  <h3 class="fw-bold my-1 text-danger" id="val-total-maint-cost">₹ 0</h3>
+                  <small class="text-muted">Total repair & servicing expenditure</small>
+                </div>
+                <div class="stat-icon bg-danger-subtle text-danger">
+                  <i class="fa-solid fa-wrench"></i>
+                </div>
+              </div>
             </div>
-            <div class="col-md-2">
-              <button type="submit" class="btn btn-primary-custom w-100 text-white py-2.5">
-                <i class="fa-solid fa-arrows-rotate me-2"></i>Generate
+          </div>
+        </div>
+
+        <!-- Filter / Parameter Selection & Export Toolbar -->
+        <div class="card-custom mb-4 py-3">
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <form id="report-parameters-form" class="d-flex align-items-center gap-3 flex-wrap mb-0">
+              <div class="d-flex align-items-center gap-2">
+                <label for="report-type" class="form-label-custom mb-0 fw-bold">Report Type:</label>
+                <select id="report-type" class="form-select form-control-custom py-1.5 fs-7" style="min-width: 200px;">
+                  <option value="valuation">Asset Inventory Valuation</option>
+                  <option value="allocations">Allocation Assignments</option>
+                  <option value="maintenance">Maintenance & Repair Cost</option>
+                  <option value="bookings">Resource Booking & Uptime</option>
+                </select>
+              </div>
+              <input type="hidden" id="report-start">
+              <input type="hidden" id="report-end">
+              <button type="submit" class="btn btn-primary-custom btn-sm text-white px-3">
+                <i class="fa-solid fa-rotate me-1"></i>Refresh
+              </button>
+            </form>
+
+            <div class="d-flex gap-2">
+              <button class="btn btn-secondary-custom btn-sm" id="btn-export-csv">
+                <i class="fa-solid fa-file-csv me-1.5 text-success"></i>Export CSV
+              </button>
+              <button class="btn btn-secondary-custom btn-sm" id="btn-export-pdf">
+                <i class="fa-solid fa-file-pdf me-1.5 text-danger"></i>Export PDF
               </button>
             </div>
-          </form>
+          </div>
         </div>
 
-        <!-- Export Buttons Toolbar -->
-        <div class="d-flex justify-content-end gap-2 mb-4">
-          <button class="btn btn-secondary-custom" id="btn-export-csv">
-            <i class="fa-solid fa-file-csv me-2 text-success"></i>Export CSV
-          </button>
-          <button class="btn btn-secondary-custom" id="btn-export-pdf">
-            <i class="fa-solid fa-file-pdf me-2 text-danger"></i>Export PDF
-          </button>
-        </div>
-
-        <!-- Charts Section (Screen 9 Mockup) -->
+        <!-- Charts Section -->
         <div class="row g-4 mb-4">
-          <!-- Chart 1: Utilization by Department -->
+          <!-- Chart 1: Department Asset Distribution -->
           <div class="col-lg-6">
             <div class="card-custom h-100 mb-0">
-              <h5 class="fw-bold mb-1"><i class="fa-solid fa-chart-bar me-2 text-primary"></i>Utilization by Department</h5>
-              <p class="text-muted small mb-3">Allocated assets breakdown per corporate group</p>
-              <div style="height: 300px; position: relative;">
+              <h5 class="fw-bold mb-1"><i class="fa-solid fa-chart-pie me-2 text-primary"></i>Department Asset Distribution</h5>
+              <p class="text-muted small mb-3">Live percentage breakdown of assets per department</p>
+              <div style="height: 280px; position: relative;">
                 <canvas id="chart-utilization-dept"></canvas>
               </div>
             </div>
           </div>
-          <!-- Chart 2: Maintenance Frequency -->
+          <!-- Chart 2: Asset Status Breakdown -->
           <div class="col-lg-6">
             <div class="card-custom h-100 mb-0">
-              <h5 class="fw-bold mb-1"><i class="fa-solid fa-chart-line me-2 text-primary"></i>Maintenance Frequency</h5>
-              <p class="text-muted small mb-3">Total maintenance tasks logged per month</p>
-              <div style="height: 300px; position: relative;">
+              <h5 class="fw-bold mb-1"><i class="fa-solid fa-chart-column me-2 text-primary"></i>Asset Status Breakdown</h5>
+              <p class="text-muted small mb-3">Active vs In Stock vs Maintenance status counts</p>
+              <div style="height: 280px; position: relative;">
                 <canvas id="chart-maintenance-freq"></canvas>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Asset Lists Grid (Screen 9 Mockup) -->
+        <!-- Live Asset Insights Grid -->
         <div class="row g-4 mb-4">
-          <!-- List 1: Most Used Assets -->
-          <div class="col-lg-4">
+          <!-- List 1: 🔥 Most Used Assets & Resources -->
+          <div class="col-lg-6">
             <div class="card-custom h-100 mb-0">
-              <h6 class="fw-bold mb-3 text-uppercase text-primary fs-7"><i class="fa-solid fa-fire me-2 text-danger"></i>Most Used Assets</h6>
+              <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="fw-bold mb-0 text-uppercase text-danger fs-7"><i class="fa-solid fa-fire me-2 text-danger"></i>🔥 Most Used Assets & Resources</h6>
+                <span class="badge bg-danger-subtle text-danger rounded-pill px-2.5 py-0.5 fs-8 fw-bold">Live Utilization</span>
+              </div>
               <div class="d-flex flex-column gap-2" id="list-most-used">
-                <!-- Injected dynamically -->
+                <!-- Injected dynamically from DB -->
               </div>
             </div>
           </div>
-          <!-- List 2: Idle Assets -->
-          <div class="col-lg-4">
+
+          <!-- List 2: 📦 Available Idle Assets in Stock -->
+          <div class="col-lg-6">
             <div class="card-custom h-100 mb-0">
-              <h6 class="fw-bold mb-3 text-uppercase text-primary fs-7"><i class="fa-solid fa-hourglass me-2 text-warning"></i>Idle Assets</h6>
+              <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="fw-bold mb-0 text-uppercase text-primary fs-7"><i class="fa-solid fa-boxes-stacked me-2 text-primary"></i>📦 Idle Assets Available in Stock</h6>
+                <span class="badge bg-primary-subtle text-primary rounded-pill px-2.5 py-0.5 fs-8 fw-bold">Ready to Assign</span>
+              </div>
               <div class="d-flex flex-column gap-2" id="list-idle-assets">
-                <!-- Injected dynamically -->
-              </div>
-            </div>
-          </div>
-          <!-- List 3: Maintenance / Retirement Due -->
-          <div class="col-lg-4">
-            <div class="card-custom h-100 mb-0">
-              <h6 class="fw-bold mb-3 text-uppercase text-primary fs-7"><i class="fa-solid fa-triangle-exclamation me-2 text-danger"></i>Due for Maint / Retirement</h6>
-              <div class="d-flex flex-column gap-2" id="list-due-maint">
-                <!-- Injected dynamically -->
+                <!-- Injected dynamically from DB -->
               </div>
             </div>
           </div>
         </div>
-
-        <!-- Parameters & Ledger Section -->
-        <div class="row g-4 mb-4">
-          <div class="col-lg-4">
-            <div class="card-custom h-100 mb-0 d-flex flex-column justify-content-between">
-              <div>
-                <h5 class="fw-bold mb-3">Report Summary</h5>
-                <div class="d-flex justify-content-between mb-3 border-bottom pb-2">
-                  <span class="text-muted">Total Data Count:</span>
-                  <strong class="text-dark-custom" style="color: var(--text-color);" id="summary-total-count">--</strong>
-                </div>
-                <div class="d-flex justify-content-between mb-3 border-bottom pb-2" id="summary-metric-1-container">
-                  <span class="text-muted" id="summary-metric-1-label">Value:</span>
-                  <strong class="text-dark-custom" style="color: var(--text-color);" id="summary-metric-1-val">--</strong>
-                </div>
-                <div class="d-flex justify-content-between mb-3 border-bottom pb-2" id="summary-metric-2-container">
-                  <span class="text-muted" id="summary-metric-2-label">Scope:</span>
-                  <strong class="text-dark-custom" style="color: var(--text-color);" id="summary-metric-2-val">--</strong>
-                </div>
-              </div>
-              <div class="bg-primary-subtle text-primary p-3 rounded-3 mt-3">
-                <div class="d-flex align-items-center gap-2">
-                  <i class="fa-solid fa-circle-info fs-4"></i>
-                  <span class="small fw-semibold">This report was compiled on the fly from active live databases.</span>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="col-lg-8">
-            <div class="card-custom h-100 mb-0">
-              <h5 class="fw-bold mb-3" id="report-chart-title">Asset Inventory Valuation</h5>
-              <div style="height: 250px; position: relative;">
-                <canvas id="reportChart"></canvas>
-              </div>
-            </div>
-          </div>
-        </div>
-
 
         <!-- Hidden Details Data Table to maintain JS chart calculations and CSV Export -->
         <div class="d-none">
+          <span id="summary-total-count">0</span>
+          <span id="summary-metric-1-val">0</span>
+          <span id="summary-metric-2-val">0</span>
+          <canvas id="reportChart"></canvas>
           <table id="report-table">
             <thead>
               <tr id="report-table-header"></tr>
