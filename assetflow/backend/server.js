@@ -315,37 +315,49 @@ app.get('/api/allocations', async (req, res) => {
 });
 
 app.post('/api/allocations', authenticateToken, async (req, res) => {
-  const { assetId, assetName, allocatedTo, date } = req.body;
+  const { assetId, assetName, allocatedTo, date, notes } = req.body;
   try {
     const countRes = await db.query('SELECT COUNT(*) as count FROM allocations');
     const count = countRes[0].count + 1;
     const newId = 'ALC-' + String(count).padStart(3, '0');
 
+    const userRole = req.user.role;
+    const userDept = req.user.department || 'Management';
+    const userName = req.user.fullName || req.user.name || req.user.email;
+    const userEmail = req.user.email;
+
     let status = 'Pending Approval';
     let targetRole = 'Department Head';
 
-    if (req.user.role === 'Asset Manager' || req.user.role === 'AssetManager') {
-      status = 'Approved';
-    } else if (req.user.role === 'Department Head' || req.user.role === 'DepartmentHead') {
+    if (userRole === 'Employee') {
+      status = 'Pending Department Head Approval';
+      targetRole = 'Department Head';
+    } else if (userRole === 'Department Head' || userRole === 'DepartmentHead') {
+      status = 'Pending Asset Manager Approval';
       targetRole = 'Asset Manager';
+    } else if (userRole === 'Asset Manager' || userRole === 'AssetManager' || userRole === 'Admin') {
+      status = 'Approved';
+      targetRole = 'Approved';
     }
 
+    const targetAllocatedTo = allocatedTo || userName;
+    const timeString = new Date().toISOString().replace('T', ' ').substring(0, 16);
+
     await db.query(
-      'INSERT INTO allocations (id, assetId, assetName, allocatedTo, date, status, department) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [newId, assetId, assetName, allocatedTo, date, status, req.user.department || 'IT']
+      'INSERT INTO allocations (id, assetId, assetName, allocatedTo, date, status, department, requestedBy, requestedByEmail, targetRole, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [newId, assetId || null, assetName, targetAllocatedTo, date || new Date().toISOString().split('T')[0], status, userDept, userName, userEmail, targetRole, notes || null]
     );
 
     if (status === 'Approved' && assetId && assetId !== 'null' && assetId !== 'Generic') {
-      await db.query('UPDATE assets SET owner = ?, status = "Active" WHERE id = ?', [allocatedTo, assetId]);
+      await db.query('UPDATE assets SET owner = ?, status = "Active" WHERE id = ?', [targetAllocatedTo, assetId]);
     }
 
     // Notify appropriate role
     if (status !== 'Approved') {
       const ntfId = 'NTF-' + Math.floor(100000 + Math.random() * 900000);
-      const timeString = new Date().toISOString().replace('T', ' ').substring(0, 16);
       await db.query(
         'INSERT INTO notifications (id, title, message, type, date, `read`, targetRole, targetUserEmail) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        [ntfId, 'New Allocation Request', `${allocatedTo} requested allocation for ${assetName}.`, 'info', timeString, false, targetRole, null]
+        [ntfId, 'New Allocation Request', `${targetAllocatedTo} requested allocation for ${assetName}.`, 'info', timeString, false, targetRole, null]
       );
     }
 
@@ -354,11 +366,11 @@ app.post('/api/allocations', authenticateToken, async (req, res) => {
       event: 'ALLOCATION_REQUEST_CREATED',
       requestId: newId,
       createdBy: req.user.email,
-      createdByName: req.user.name,
+      createdByName: userName,
       createdAt: timeString,
-      assetId: assetId,
+      assetId: assetId || null,
       assetName: assetName,
-      allocatedTo: allocatedTo
+      allocatedTo: targetAllocatedTo
     }));
 
     res.status(201).json({ success: true, message: 'Allocation request created!' });
@@ -367,15 +379,32 @@ app.post('/api/allocations', authenticateToken, async (req, res) => {
   }
 });
 
+app.post('/api/assets/:id/return', authenticateToken, async (req, res) => {
+  const { id } = req.params;
+  try {
+    // Reset asset owner and set status Active
+    await db.query('UPDATE assets SET owner = NULL, status = "Active" WHERE id = ?', [id]);
+    
+    // Mark any active allocation for this asset as Returned
+    await db.query('UPDATE allocations SET status = "Returned" WHERE assetId = ? AND status = "Approved"', [id]);
+    
+    res.json({ success: true, message: 'Asset returned to company stock successfully!' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 app.post('/api/allocations/:id/action', authenticateToken, async (req, res) => {
   const role = req.user.role;
-  if (role !== 'Admin' && role !== 'Asset Manager' && role !== 'AssetManager' && role !== 'Department Head' && role !== 'DepartmentHead') {
-    return res.status(403).json({ message: 'Access Denied: You cannot approve or reject allocation requests.' });
-  }
   const { id } = req.params;
   const { status, assetId } = req.body; // 'Approved', 'Rejected', 'Returned', optional assetId
+
+  if (status !== 'Returned' && role !== 'Admin' && role !== 'Asset Manager' && role !== 'AssetManager' && role !== 'Department Head' && role !== 'DepartmentHead') {
+    return res.status(403).json({ message: 'Access Denied: You cannot approve or reject allocation requests.' });
+  }
+
   try {
-    const allocs = await db.query('SELECT assetId, assetName, allocatedTo FROM allocations WHERE id = ?', [id]);
+    const allocs = await db.query('SELECT assetId, assetName, allocatedTo, requestedByEmail, department FROM allocations WHERE id = ?', [id]);
     if (allocs.length === 0) {
       return res.status(404).json({ message: 'Allocation not found.' });
     }

@@ -26,7 +26,41 @@ document.addEventListener('DOMContentLoaded', async () => {
 async function loadAllocations() {
   try {
     const allocations = await window.ApiService.allocations.list();
-    renderAllocationsTable(allocations);
+    const role = window.RbacService.getCurrentUserRole();
+    const user = window.RbacService.getCurrentUser();
+
+    // Customize page header button depending on role
+    const openBtn = document.getElementById('btn-open-alloc-modal');
+    if (openBtn) {
+      if (role === 'Employee') {
+        openBtn.innerHTML = '<i class="fa-solid fa-paper-plane me-2"></i>Request Asset';
+      } else if (role === 'Department Head' || role === 'DepartmentHead') {
+        openBtn.innerHTML = '<i class="fa-solid fa-paper-plane me-2"></i>Requisition Asset';
+      } else {
+        openBtn.innerHTML = '<i class="fa-solid fa-plus me-2"></i>New Allocation';
+      }
+    }
+    
+    let filteredAllocations = allocations;
+
+    if (role === 'Employee') {
+      const userEmail = (user ? user.email : '').toLowerCase();
+      const userName = (user ? (user.fullName || user.name) : '').toLowerCase();
+      filteredAllocations = allocations.filter(a => 
+        (a.requestedByEmail && a.requestedByEmail.toLowerCase() === userEmail) ||
+        (a.allocatedTo && a.allocatedTo.toLowerCase() === userName)
+      );
+    } else if (role === 'Department Head' || role === 'DepartmentHead') {
+      const userDept = (user ? user.department : '').toLowerCase();
+      const userEmail = (user ? user.email : '').toLowerCase();
+      // Department Head ONLY sees allocations from their OWN department or submitted by themselves!
+      filteredAllocations = allocations.filter(a => 
+        (a.department && a.department.toLowerCase() === userDept) ||
+        (a.requestedByEmail && a.requestedByEmail.toLowerCase() === userEmail)
+      );
+    }
+
+    renderAllocationsTable(filteredAllocations);
   } catch (err) {
     console.error(err);
   }
@@ -102,7 +136,7 @@ function handleAssetSelection(assetId) {
   // Check allocation conflict
   if (asset.owner) {
     // Conflict! Already allocated
-    conflictMessage.textContent = `Already Allocated to ${asset.owner} (${asset.id === 'AF-0114' ? 'Engineering' : 'Staff'})`;
+    conflictMessage.textContent = `Already Allocated to ${asset.owner}`;
     conflictCard.classList.remove('d-none');
     
     // Show Transfer Form
@@ -141,21 +175,29 @@ function renderAllocationsTable(allocations) {
     let canApprove = false;
     if (role === 'Admin' || role === 'Asset Manager' || role === 'AssetManager') {
       canApprove = true;
-    } else if ((role === 'Department Head' || role === 'DepartmentHead') && alloc.department === currentUser.department) {
-      canApprove = true;
+    } else if ((role === 'Department Head' || role === 'DepartmentHead')) {
+      const userDept = (currentUser ? currentUser.department : '').toLowerCase();
+      const allocDept = (alloc.department || '').toLowerCase();
+      if (allocDept === userDept && (alloc.targetRole === 'Department Head' || (alloc.status && alloc.status.includes('Department Head')))) {
+        canApprove = true;
+      }
     }
+    
+    const userName = (currentUser ? (currentUser.fullName || currentUser.name) : '').toLowerCase();
+    const userEmail = (currentUser ? currentUser.email : '').toLowerCase();
+    const isOwner = (alloc.allocatedTo && alloc.allocatedTo.toLowerCase() === userName) || (alloc.requestedByEmail && alloc.requestedByEmail.toLowerCase() === userEmail);
     
     let statusClass = 'bg-warning text-dark';
     let actionButtons = '';
     
     if (alloc.status === 'Approved') {
       statusClass = 'bg-success';
-      actionButtons = canApprove ? `
-        <button class="btn btn-sm btn-secondary-custom text-danger btn-action" data-action="Returned" title="Mark as Returned">
+      actionButtons = (canApprove || isOwner) ? `
+        <button class="btn btn-sm btn-outline-danger btn-action" data-action="Returned" title="Return Asset back to stock">
           <i class="fa-solid fa-arrow-rotate-left me-1"></i>Return
         </button>
       ` : '<span class="text-muted small">Approved</span>';
-    } else if (alloc.status === 'Pending Approval') {
+    } else if (alloc.status === 'Pending Approval' || alloc.status === 'Pending Department Head Approval' || alloc.status === 'Pending Asset Manager Approval') {
       statusClass = 'bg-warning text-dark';
       if (canApprove) {
         actionButtons = `
@@ -169,7 +211,7 @@ function renderAllocationsTable(allocations) {
           </div>
         `;
       } else {
-        actionButtons = '<span class="text-muted small">Pending</span>';
+        actionButtons = '<span class="text-muted small">Pending Approval</span>';
       }
     } else if (alloc.status === 'Rejected') {
       statusClass = 'bg-danger';
@@ -179,12 +221,14 @@ function renderAllocationsTable(allocations) {
       actionButtons = '<span class="text-muted small">--</span>';
     }
 
+    const deptTag = alloc.department ? `<span class="badge bg-light text-secondary border ms-1" style="font-size:0.68rem;">${alloc.department}</span>` : '';
+
     html += `
       <tr data-id="${alloc.id}">
         <td><strong class="text-primary">${alloc.id}</strong></td>
         <td><strong>${alloc.assetId || '<span class="badge bg-light text-muted border rounded-pill px-2 py-0.5">Generic</span>'}</strong></td>
         <td>
-          <div class="fw-semibold text-dark-custom" style="color: var(--text-color);">${alloc.assetName}</div>
+          <div class="fw-semibold text-dark-custom" style="color: var(--text-color);">${alloc.assetName}${deptTag}</div>
         </td>
         <td>${alloc.allocatedTo}</td>
         <td>${alloc.date}</td>

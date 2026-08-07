@@ -31,8 +31,23 @@ async function getPool() {
 
 async function query(sql, params) {
   const activePool = await getPool();
-  const [results] = await activePool.execute(sql, params);
+  const cleanParams = Array.isArray(params) 
+    ? params.map(p => (p === undefined ? null : p)) 
+    : params;
+  const [results] = await activePool.execute(sql, cleanParams);
   return results;
+}
+
+async function addColumnIfNotExists(tableName, columnName, columnDefinition) {
+  try {
+    const cols = await query(`SHOW COLUMNS FROM \`${tableName}\` LIKE '${columnName}'`);
+    if (cols.length === 0) {
+      console.log(`Adding missing column '${columnName}' to '${tableName}' table...`);
+      await query(`ALTER TABLE \`${tableName}\` ADD COLUMN \`${columnName}\` ${columnDefinition}`);
+    }
+  } catch (err) {
+    console.error(`Notice migrating column '${columnName}' on '${tableName}':`, err.message);
+  }
 }
 
 async function initializeDatabase() {
@@ -44,18 +59,21 @@ async function initializeDatabase() {
   await query(`
     CREATE TABLE IF NOT EXISTS departments (
       id INT AUTO_INCREMENT PRIMARY KEY,
-      name VARCHAR(191) NOT NULL UNIQUE
+      name VARCHAR(191) NOT NULL UNIQUE,
+      headName VARCHAR(255) NULL,
+      headEmail VARCHAR(255) NULL
     ) ENGINE=InnoDB;
   `);
 
   // 2. Users Table
   await query(`
     CREATE TABLE IF NOT EXISTS users (
-      email VARCHAR(191) PRIMARY KEY,
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      email VARCHAR(191) NOT NULL UNIQUE,
       password VARCHAR(255) NOT NULL,
       fullName VARCHAR(255) NOT NULL,
       role VARCHAR(100) NOT NULL,
-      department VARCHAR(100) NOT NULL,
+      department VARCHAR(100),
       avatar VARCHAR(255),
       isVerified BOOLEAN DEFAULT TRUE,
       status VARCHAR(100) DEFAULT 'Active',
@@ -66,13 +84,13 @@ async function initializeDatabase() {
   // 3. Organization Table
   await query(`
     CREATE TABLE IF NOT EXISTS organization (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      name VARCHAR(255) NOT NULL,
-      code VARCHAR(100) NOT NULL,
-      industry VARCHAR(100),
+      id INT PRIMARY KEY DEFAULT 1,
+      orgName VARCHAR(255) NOT NULL,
+      taxId VARCHAR(100),
       address TEXT,
-      phone VARCHAR(100),
-      website VARCHAR(255)
+      timeZone VARCHAR(100),
+      currency VARCHAR(50),
+      fiscalYear VARCHAR(50)
     ) ENGINE=InnoDB;
   `);
 
@@ -99,7 +117,11 @@ async function initializeDatabase() {
       allocatedTo VARCHAR(255) NOT NULL,
       date VARCHAR(100) NOT NULL,
       status VARCHAR(100) NOT NULL,
-      department VARCHAR(100) NOT NULL
+      department VARCHAR(100) NOT NULL,
+      requestedBy VARCHAR(255) NULL,
+      requestedByEmail VARCHAR(255) NULL,
+      targetRole VARCHAR(100) NULL,
+      notes TEXT NULL
     ) ENGINE=InnoDB;
   `);
 
@@ -144,7 +166,7 @@ async function initializeDatabase() {
     ) ENGINE=InnoDB;
   `);
 
-  // 9. Notifications Table (Targeted audience support added)
+  // 9. Notifications Table
   await query(`
     CREATE TABLE IF NOT EXISTS notifications (
       id VARCHAR(50) PRIMARY KEY,
@@ -158,7 +180,17 @@ async function initializeDatabase() {
     ) ENGINE=InnoDB;
   `);
 
-  console.log('Database tables verified/created successfully.');
+  // Automatic column migrations for pre-existing MySQL databases
+  await addColumnIfNotExists('allocations', 'requestedBy', 'VARCHAR(255) NULL');
+  await addColumnIfNotExists('allocations', 'requestedByEmail', 'VARCHAR(255) NULL');
+  await addColumnIfNotExists('allocations', 'targetRole', 'VARCHAR(100) NULL');
+  await addColumnIfNotExists('allocations', 'notes', 'TEXT NULL');
+  await addColumnIfNotExists('departments', 'headName', 'VARCHAR(255) NULL');
+  await addColumnIfNotExists('departments', 'headEmail', 'VARCHAR(255) NULL');
+  await addColumnIfNotExists('notifications', 'targetRole', 'VARCHAR(100) NULL');
+  await addColumnIfNotExists('notifications', 'targetUserEmail', 'VARCHAR(191) NULL');
+
+  console.log('Database tables & column migrations verified successfully.');
   
   // Seed Database if empty
   await seedDatabase();

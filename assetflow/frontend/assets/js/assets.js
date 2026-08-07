@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (reqModalEl) {
       requestModal = new bootstrap.Modal(reqModalEl);
     }
+    setupScopeDropdownForRole();
     await loadAssets();
     setupEventListeners();
   } catch (err) {
@@ -24,19 +25,79 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 });
 
+function setupScopeDropdownForRole() {
+  const scopeSelect = document.getElementById('filter-scope');
+  if (!scopeSelect) return;
+
+  const role = window.RbacService.getCurrentUserRole();
+  if (role === 'Employee') {
+    scopeSelect.innerHTML = `
+      <option value="department" selected>🏢 Department Assets</option>
+      <option value="my">💻 My Assets</option>
+    `;
+  } else if (role === 'Department Head' || role === 'DepartmentHead') {
+    scopeSelect.innerHTML = `
+      <option value="department" selected>🏢 Department Assets</option>
+      <option value="my">💻 My Assets</option>
+      <option value="all">🌐 All Company Assets</option>
+    `;
+  } else {
+    scopeSelect.innerHTML = `
+      <option value="all" selected>🌐 All Company Assets</option>
+      <option value="department">🏢 Department Assets</option>
+    `;
+  }
+}
+
+let rawAssetsList = [];
+
 async function loadAssets() {
   try {
-    let assets = await window.ApiService.assets.list();
-    const role = window.RbacService.getCurrentUserRole();
-    if (role === 'Employee') {
-      const user = window.RbacService.getCurrentUser();
-      const userName = (user ? (user.fullName || user.name) : '').toLowerCase();
-      assets = assets.filter(a => a.owner && a.owner.toLowerCase() === userName);
-    }
-    renderAssetsTable(assets);
+    rawAssetsList = await window.ApiService.assets.list();
+    await applyScopeAndTableFilters();
   } catch (err) {
-    console.error(err);
+    console.error("Failed to load assets list:", err);
   }
+}
+
+async function applyScopeAndTableFilters() {
+  const scopeVal = document.getElementById('filter-scope') ? document.getElementById('filter-scope').value : 'department';
+  const user = window.RbacService.getCurrentUser() || {};
+  const userDept = (user.department || 'Management').toLowerCase();
+  const userName = (user.fullName || user.name || '').toLowerCase();
+
+  let filtered = [...rawAssetsList];
+
+  if (scopeVal === 'my') {
+    filtered = filtered.filter(a => a.owner && a.owner.toLowerCase() === userName);
+  } else if (scopeVal === 'department') {
+    let deptMemberNames = new Set();
+    if (user.fullName) deptMemberNames.add(user.fullName.toLowerCase());
+    if (user.name) deptMemberNames.add(user.name.toLowerCase());
+
+    try {
+      const usersList = window.ApiService.users ? await window.ApiService.users.list() : [];
+      usersList.forEach(u => {
+        if ((u.department || '').toLowerCase() === userDept) {
+          if (u.fullName) deptMemberNames.add(u.fullName.toLowerCase());
+          if (u.name) deptMemberNames.add(u.name.toLowerCase());
+        }
+      });
+    } catch (e) {
+      console.warn("Could not fetch users for department scope filter:", e);
+    }
+
+    filtered = filtered.filter(a => {
+      if (!a.owner || a.owner.trim() === '') return true; // Available stock to request
+      const ownerName = a.owner.toLowerCase();
+      if (deptMemberNames.has(ownerName)) return true;
+      const loc = (a.location || '').toLowerCase();
+      if (loc && loc.includes(userDept)) return true;
+      return false; // Exclude assets owned by users in other departments
+    });
+  }
+
+  renderAssetsTable(filtered);
 }
 
 function renderAssetsTable(assets) {
@@ -56,6 +117,9 @@ function renderAssetsTable(assets) {
 
     const role = window.RbacService.getCurrentUserRole();
     const canManage = window.RbacService.hasPermission(role, 'register_asset');
+    const user = window.RbacService.getCurrentUser() || {};
+    const userName = (user.fullName || user.name || '').toLowerCase();
+    const userDept = (user.department || 'Management').toLowerCase();
     
     let actionsHtml = '--';
     if (canManage) {
@@ -68,6 +132,19 @@ function renderAssetsTable(assets) {
             <i class="fa-solid fa-trash-can"></i>
           </button>
         </div>
+      `;
+    } else if (!asset.owner && asset.status === 'Active') {
+      actionsHtml = `
+        <button class="btn btn-sm btn-primary-custom text-white btn-request-asset" data-id="${asset.id}" data-name="${asset.name}" title="Request Asset">
+          <i class="fa-solid fa-paper-plane me-1"></i>Request
+        </button>
+      `;
+    } else if (asset.owner) {
+      // Allocated asset -> Dept Head or Owner can Return asset
+      actionsHtml = `
+        <button class="btn btn-sm btn-outline-danger btn-return-asset" data-id="${asset.id}" data-name="${asset.name}" title="Return Asset to Stock">
+          <i class="fa-solid fa-arrow-rotate-left me-1"></i>Return
+        </button>
       `;
     }
 
@@ -106,9 +183,15 @@ function renderAssetsTable(assets) {
 }
 
 function bindTableFilters() {
+  const scopeFilter = document.getElementById('filter-scope');
   const searchInput = document.getElementById('asset-search');
   const typeFilter = document.getElementById('filter-type');
   const statusFilter = document.getElementById('filter-status');
+
+  if (scopeFilter) {
+    scopeFilter.removeEventListener('change', applyScopeAndTableFilters);
+    scopeFilter.addEventListener('change', applyScopeAndTableFilters);
+  }
 
   if (searchInput) {
     searchInput.addEventListener('keyup', () => {
@@ -130,16 +213,53 @@ function bindTableFilters() {
 
   const resetBtn = document.getElementById('btn-clear-filters');
   if (resetBtn) {
-    resetBtn.addEventListener('click', () => {
+    resetBtn.addEventListener('click', async () => {
+      if (scopeFilter) scopeFilter.value = 'department';
       if (searchInput) searchInput.value = '';
       if (typeFilter) typeFilter.value = '';
       if (statusFilter) statusFilter.value = '';
-      assetsTable.search('').columns().search('').draw();
+      await applyScopeAndTableFilters();
+      if (assetsTable) assetsTable.search('').columns().search('').draw();
     });
   }
 }
 
 function setupEventListeners() {
+  // Handle "Return Asset" button in inventory table
+  $(document).on('click', '.btn-return-asset', async function() {
+    const assetId = $(this).attr('data-id');
+    const assetName = $(this).attr('data-name');
+
+    Swal.fire({
+      title: `Return ${assetName}?`,
+      text: `Are you sure you want to return ${assetName} (${assetId}) back to company stock?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#EF4444',
+      cancelButtonColor: '#64748B',
+      confirmButtonText: 'Yes, Return Asset',
+      cancelButtonText: 'Cancel'
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        window.AssetFlowLoader.show();
+        try {
+          await window.ApiService.assets.returnAsset(assetId);
+          Swal.fire({
+            title: 'Asset Returned!',
+            text: `${assetName} has been returned to stock successfully.`,
+            icon: 'success',
+            confirmButtonColor: '#2563EB'
+          });
+          await loadAssets();
+        } catch (err) {
+          Swal.fire('Error', err.message || 'Failed to return asset', 'error');
+        } finally {
+          window.AssetFlowLoader.hide();
+        }
+      }
+    });
+  });
+
   // Add Asset modal open
   const addBtn = document.getElementById('btn-open-add-modal');
   if (addBtn) {
@@ -365,6 +485,51 @@ function setupEventListeners() {
       requestModal.show();
     });
   }
+
+  // Handle direct "Request Asset" button in inventory table
+  $(document).on('click', '.btn-request-asset', async function() {
+    const assetId = $(this).attr('data-id');
+    const assetName = $(this).attr('data-name');
+    const user = window.RbacService.getCurrentUser() || {};
+    const role = window.RbacService.getCurrentUserRole();
+    
+    const targetInfo = (role === 'Employee') 
+      ? `Your request will be sent to your Department Head (${user.department || 'Management'}).` 
+      : `Your requisition will be sent to the Asset Manager.`;
+
+    const { value: notes, isConfirmed } = await Swal.fire({
+      title: `Request ${assetName}`,
+      html: `<p class="text-muted small mb-2">${targetInfo}</p>`,
+      input: 'textarea',
+      inputLabel: 'Reason / Usage Details',
+      inputPlaceholder: 'Enter reason for requesting this asset...',
+      showCancelButton: true,
+      confirmButtonText: 'Submit Request',
+      confirmButtonColor: '#2563EB'
+    });
+
+    if (isConfirmed) {
+      window.AssetFlowLoader.show();
+      try {
+        await window.ApiService.allocations.create({
+          assetId,
+          assetName,
+          allocatedTo: user.fullName || user.name || user.email,
+          notes
+        });
+        Swal.fire({
+          title: 'Request Submitted!',
+          text: 'Your request has been submitted for approval.',
+          icon: 'success',
+          confirmButtonColor: '#2563EB'
+        });
+      } catch (err) {
+        Swal.fire('Error', err.message, 'error');
+      } finally {
+        window.AssetFlowLoader.hide();
+      }
+    }
+  });
 
   // Request Asset submit
   const requestForm = document.getElementById('request-asset-form');

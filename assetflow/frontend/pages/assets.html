@@ -51,13 +51,22 @@
         <!-- Filter & Search Panel -->
         <div class="card-custom mb-4 py-3">
           <div class="row g-3 align-items-center">
-            <div class="col-md-4">
+            <div class="col-md-3">
+              <label for="filter-scope" class="form-label-custom text-muted fs-8 mb-1">Asset View Scope</label>
+              <select id="filter-scope" class="form-select form-control-custom fw-semibold text-primary">
+                <option value="department" selected>🏢 Department Assets</option>
+                <option value="all">🌐 All Company Assets</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label for="asset-search" class="form-label-custom text-muted fs-8 mb-1">Quick Search</label>
               <div class="position-relative">
-                <input type="text" id="asset-search" class="form-control-custom w-100 ps-4" placeholder="Quick search assets...">
+                <input type="text" id="asset-search" class="form-control-custom w-100 ps-4" placeholder="Search assets...">
                 <i class="fa-solid fa-search position-absolute text-muted" style="right: 15px; top: 12px;"></i>
               </div>
             </div>
-            <div class="col-md-3">
+            <div class="col-md-2">
+              <label for="filter-type" class="form-label-custom text-muted fs-8 mb-1">Category</label>
               <select id="filter-type" class="form-select form-control-custom">
                 <option value="">All Types</option>
                 <option value="Hardware">Hardware</option>
@@ -66,7 +75,8 @@
                 <option value="Furniture">Furniture</option>
               </select>
             </div>
-            <div class="col-md-3">
+            <div class="col-md-2">
+              <label for="filter-status" class="form-label-custom text-muted fs-8 mb-1">Status</label>
               <select id="filter-status" class="form-select form-control-custom">
                 <option value="">All Statuses</option>
                 <option value="Active">Active</option>
@@ -74,7 +84,7 @@
                 <option value="Disposed">Disposed</option>
               </select>
             </div>
-            <div class="col-md-2">
+            <div class="col-md-2 align-self-end">
               <button class="btn btn-secondary-custom w-100" id="btn-clear-filters">
                 <i class="fa-solid fa-filter-circle-xmark me-2"></i>Reset
               </button>

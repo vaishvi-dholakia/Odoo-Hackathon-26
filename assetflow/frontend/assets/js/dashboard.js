@@ -189,13 +189,18 @@ function buildKpiCards(role, data) {
       { label: 'Overdue Assets', val: data.allocations.filter(a => a.status === 'Overdue').length, desc: 'Requires immediate return', icon: 'fa-clock', bg: 'bg-danger-subtle text-danger' }
     ];
   } else if (role === 'Employee') {
-    const myAssetIds = data.assets.map(a => a.id);
-    const myPendingMaint = data.maintenance.filter(m => myAssetIds.includes(m.assetId) && m.status === 'Pending');
+    const user = window.RbacService.getCurrentUser() || {};
+    const userName = (user.fullName || user.name || '').toLowerCase();
+    const userDept = (user.department || 'Management').toLowerCase();
+    
+    const myAssetsCount = data.assets.filter(a => a.owner && a.owner.toLowerCase() === userName).length;
+    const myPendingMaint = data.maintenance.filter(m => m.status === 'Pending').length;
+    
     cards = [
-      { label: 'My Assets', val: data.assets.length, desc: 'Allocated to you', icon: 'fa-user-gear', bg: 'bg-info-subtle text-info' },
+      { label: 'My Assets', val: myAssetsCount, desc: 'Allocated to you', icon: 'fa-user-gear', bg: 'bg-info-subtle text-info' },
+      { label: 'Department Assets', val: data.assets.length, desc: `${user.department || 'Department'} Resources`, icon: 'fa-boxes-stacked', bg: 'bg-primary-subtle text-primary' },
       { label: 'Upcoming Bookings', val: data.bookings.filter(b => b.status === 'Confirmed').length, desc: 'Your active bookings', icon: 'fa-calendar-days', bg: 'bg-success-subtle text-success' },
-      { label: 'Pending Maintenance Requests', val: myPendingMaint.length, desc: 'Your reported issues', icon: 'fa-screwdriver-wrench', bg: 'bg-warning-subtle text-warning' },
-      { label: 'Notifications', val: data.notifications.filter(n => !n.read).length, desc: 'Unread updates', icon: 'fa-bell', bg: 'bg-primary-subtle text-primary' }
+      { label: 'Pending Maintenance', val: myPendingMaint, desc: 'Reported issues', icon: 'fa-screwdriver-wrench', bg: 'bg-warning-subtle text-warning' }
     ];
   }
 
@@ -682,18 +687,25 @@ function buildDetailsRow(role, data) {
     }
 
   } else if (role === 'Employee') {
+    const currentUser = window.RbacService.getCurrentUser() || {};
     container.innerHTML = `
-      <!-- Left: My Assigned Assets -->
+      <!-- Left: My / Department Assets Overview -->
       <div class="col-lg-6">
         <div class="card-custom h-100 mb-0">
-          <h5 class="fw-bold mb-3"><i class="fa-solid fa-laptop me-2 text-primary"></i>My Assigned Assets</h5>
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="fw-bold mb-0"><i class="fa-solid fa-laptop me-2 text-primary"></i>Asset Overview</h5>
+            <select id="emp-dashboard-asset-scope" class="form-select form-control-custom py-1 px-2.5 fs-7" style="width: auto;">
+              <option value="my" selected>💻 My Assets</option>
+              <option value="department">🏢 Department Assets</option>
+            </select>
+          </div>
           <div class="table-custom-wrapper">
             <table class="table-custom">
               <thead>
                 <tr>
                   <th>Asset Name</th>
-                  <th>Serial Number</th>
-                  <th>Assigned Date</th>
+                  <th>Serial / ID</th>
+                  <th>Owner</th>
                   <th>Status</th>
                 </tr>
               </thead>
@@ -727,32 +739,73 @@ function buildDetailsRow(role, data) {
       </div>
     `;
 
-    // Populate my assets
-    const myAssetsBody = document.getElementById('my-assets-table-body');
-    if (myAssetsBody) {
-      if (data.assets && data.assets.length > 0) {
+    const renderEmpAssetTable = async (scope) => {
+      const tbody = document.getElementById('my-assets-table-body');
+      if (!tbody) return;
+
+      const userName = (currentUser.fullName || currentUser.name || '').toLowerCase();
+      const userDept = (currentUser.department || 'Management').toLowerCase();
+      let targetAssets = [];
+
+      if (scope === 'my') {
+        targetAssets = data.assets.filter(a => a.owner && a.owner.toLowerCase() === userName);
+      } else {
+        let deptMemberNames = new Set([userName]);
+        try {
+          const usersList = window.ApiService.users ? await window.ApiService.users.list() : [];
+          usersList.filter(u => (u.department || '').toLowerCase() === userDept).forEach(u => {
+            if (u.fullName) deptMemberNames.add(u.fullName.toLowerCase());
+            if (u.name) deptMemberNames.add(u.name.toLowerCase());
+          });
+        } catch (e) {
+          console.warn("Could not fetch dept members:", e);
+        }
+
+        targetAssets = data.assets.filter(a => {
+          const ownerName = (a.owner || '').toLowerCase();
+          const loc = (a.location || '').toLowerCase();
+          return (ownerName && deptMemberNames.has(ownerName)) || (loc && loc === userDept);
+        });
+      }
+
+      if (targetAssets.length > 0) {
         let html = '';
-        data.assets.forEach(asset => {
+        targetAssets.forEach(asset => {
+          let statusBadge = 'bg-success-subtle text-success';
+          if (asset.status === 'Maintenance') statusBadge = 'bg-warning-subtle text-warning';
+          if (asset.status === 'Disposed') statusBadge = 'bg-danger-subtle text-danger';
+
           html += `
             <tr>
               <td><strong>${asset.name}</strong></td>
-              <td><code>${asset.serialNumber || asset.id}</code></td>
-              <td>${asset.purchaseDate || 'N/A'}</td>
-              <td><span class="badge bg-success-subtle text-success rounded-pill px-2 py-0.5">${asset.status}</span></td>
+              <td><code>${asset.serial || asset.id}</code></td>
+              <td>${asset.owner || '<span class="text-muted">Unassigned</span>'}</td>
+              <td><span class="badge ${statusBadge} rounded-pill px-2 py-0.5">${asset.status}</span></td>
             </tr>
           `;
         });
-        myAssetsBody.innerHTML = html;
+        tbody.innerHTML = html;
       } else {
-        myAssetsBody.innerHTML = `
+        tbody.innerHTML = `
           <tr>
             <td colspan="4" class="text-center py-4 text-muted">
               <i class="fa-solid fa-folder-open d-block fs-3 mb-2"></i>
-              No assets allocated to you.
+              No assets found under ${scope === 'my' ? 'My Assets' : 'Department Assets'}.
             </td>
           </tr>
         `;
       }
+    };
+
+    // Initial render
+    renderEmpAssetTable('my');
+
+    // Toggle event listener
+    const empScopeSelect = document.getElementById('emp-dashboard-asset-scope');
+    if (empScopeSelect) {
+      empScopeSelect.addEventListener('change', (e) => {
+        renderEmpAssetTable(e.target.value);
+      });
     }
 
     // Populate my bookings

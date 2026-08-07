@@ -218,6 +218,14 @@ const ApiService = {
       } catch (err) {
         return handleApiError(err);
       }
+    },
+    returnAsset: async (id) => {
+      try {
+        const res = await api.post(`/assets/${id}/return`);
+        return res.data;
+      } catch (err) {
+        return handleApiError(err);
+      }
     }
   },
 
