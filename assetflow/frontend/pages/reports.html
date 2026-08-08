@@ -36,28 +36,20 @@
             <h2 class="fw-bold mb-0">System Analytics</h2>
             <p class="text-muted mb-0">Generate, review, and export financial and operational reports</p>
           </div>
+          <div class="d-flex gap-2">
+            <button class="btn btn-secondary-custom btn-sm" id="btn-export-csv">
+              <i class="fa-solid fa-file-csv me-1.5 text-success"></i>Export CSV
+            </button>
+            <button class="btn btn-secondary-custom btn-sm" id="btn-export-pdf">
+              <i class="fa-solid fa-file-pdf me-1.5 text-danger"></i>Export PDF
+            </button>
+          </div>
         </div>
 
         <!-- Live KPI Statistic Cards -->
         <div class="row g-4 mb-4">
-          <!-- Total Valuation -->
-          <div class="col-md-4">
-            <div class="card-custom mb-0">
-              <div class="d-flex align-items-center justify-content-between">
-                <div>
-                  <span class="text-muted fs-7 fw-semibold text-uppercase">Total Portfolio Valuation</span>
-                  <h3 class="fw-bold my-1 text-primary" id="val-total-portfolio">₹ 0</h3>
-                  <small class="text-muted">Live sum of asset purchase costs</small>
-                </div>
-                <div class="stat-icon bg-primary-subtle text-primary">
-                  <i class="fa-solid fa-indian-rupee-sign"></i>
-                </div>
-              </div>
-            </div>
-          </div>
-
           <!-- Total Assets Count -->
-          <div class="col-md-4">
+          <div class="col-md-6">
             <div class="card-custom mb-0">
               <div class="d-flex align-items-center justify-content-between">
                 <div>
@@ -73,7 +65,7 @@
           </div>
 
           <!-- Total Maintenance Expenses -->
-          <div class="col-md-4">
+          <div class="col-md-6">
             <div class="card-custom mb-0">
               <div class="d-flex align-items-center justify-content-between">
                 <div>
@@ -85,37 +77,6 @@
                   <i class="fa-solid fa-wrench"></i>
                 </div>
               </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Filter / Parameter Selection & Export Toolbar -->
-        <div class="card-custom mb-4 py-3">
-          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-            <form id="report-parameters-form" class="d-flex align-items-center gap-3 flex-wrap mb-0">
-              <div class="d-flex align-items-center gap-2">
-                <label for="report-type" class="form-label-custom mb-0 fw-bold">Report Type:</label>
-                <select id="report-type" class="form-select form-control-custom py-1.5 fs-7" style="min-width: 200px;">
-                  <option value="valuation">Asset Inventory Valuation</option>
-                  <option value="allocations">Allocation Assignments</option>
-                  <option value="maintenance">Maintenance & Repair Cost</option>
-                  <option value="bookings">Resource Booking & Uptime</option>
-                </select>
-              </div>
-              <input type="hidden" id="report-start">
-              <input type="hidden" id="report-end">
-              <button type="submit" class="btn btn-primary-custom btn-sm text-white px-3">
-                <i class="fa-solid fa-rotate me-1"></i>Refresh
-              </button>
-            </form>
-
-            <div class="d-flex gap-2">
-              <button class="btn btn-secondary-custom btn-sm" id="btn-export-csv">
-                <i class="fa-solid fa-file-csv me-1.5 text-success"></i>Export CSV
-              </button>
-              <button class="btn btn-secondary-custom btn-sm" id="btn-export-pdf">
-                <i class="fa-solid fa-file-pdf me-1.5 text-danger"></i>Export PDF
-              </button>
             </div>
           </div>
         </div>
@@ -153,7 +114,7 @@
                 <h6 class="fw-bold mb-0 text-uppercase text-danger fs-7"><i class="fa-solid fa-fire me-2 text-danger"></i>🔥 Most Used Assets & Resources</h6>
                 <span class="badge bg-danger-subtle text-danger rounded-pill px-2.5 py-0.5 fs-8 fw-bold">Live Utilization</span>
               </div>
-              <div class="d-flex flex-column gap-2" id="list-most-used">
+              <div class="d-flex flex-column gap-3" id="list-most-used">
                 <!-- Injected dynamically from DB -->
               </div>
             </div>
@@ -166,7 +127,7 @@
                 <h6 class="fw-bold mb-0 text-uppercase text-primary fs-7"><i class="fa-solid fa-boxes-stacked me-2 text-primary"></i>📦 Idle Assets Available in Stock</h6>
                 <span class="badge bg-primary-subtle text-primary rounded-pill px-2.5 py-0.5 fs-8 fw-bold">Ready to Assign</span>
               </div>
-              <div class="d-flex flex-column gap-2" id="list-idle-assets">
+              <div class="d-flex flex-column gap-3" id="list-idle-assets">
                 <!-- Injected dynamically from DB -->
               </div>
             </div>

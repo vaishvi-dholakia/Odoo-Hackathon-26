@@ -315,9 +315,11 @@ const ApiService = {
         return handleApiError(err);
       }
     },
-    updateStatus: async (id, status) => {
+    updateStatus: async (id, status, cost) => {
       try {
-        const res = await api.put(`/maintenance/${id}/status`, { status });
+        const payload = { status };
+        if (cost !== undefined && cost !== null) payload.cost = cost;
+        const res = await api.put(`/maintenance/${id}/status`, payload);
         return res.data;
       } catch (err) {
         return handleApiError(err);

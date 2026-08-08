@@ -131,6 +131,11 @@ function renderMaintenanceTable(logs) {
     }
 
     const logCostVal = parseFloat(log.cost) || 0;
+    const costCellHtml = canApproveMaint ? `
+      <button class="btn btn-sm btn-outline-success py-0.5 px-2 fs-8 fw-bold btn-edit-cost" data-id="${log.id}" title="Click to update cost">
+        ₹ ${logCostVal.toLocaleString('en-IN')} <i class="fa-solid fa-pen ms-1 fs-9"></i>
+      </button>
+    ` : `<span class="fw-bold text-success">₹ ${logCostVal.toLocaleString('en-IN')}</span>`;
 
     html += `
       <tr data-id="${log.id}">
@@ -141,7 +146,7 @@ function renderMaintenanceTable(logs) {
         </td>
         <td>${log.type}</td>
         <td><span class="text-truncate-2 small" style="max-width:200px;" title="${log.description || ''}">${log.description || '--'}</span></td>
-        <td class="fw-bold text-success">₹ ${logCostVal.toLocaleString('en-IN')}</td>
+        <td>${costCellHtml}</td>
         <td>${log.date}</td>
         <td><span class="badge ${statusClass} rounded-pill px-2.5 py-1">${displayStatus}</span></td>
         <td>${actionBtn}</td>
@@ -208,7 +213,12 @@ function renderKanbanBoard(logs) {
     }
 
     const costVal = parseFloat(log.cost) || 0;
-    const costHtml = `<span class="badge bg-success-subtle text-success border border-success-subtle fs-8 fw-bold">₹ ${costVal.toLocaleString('en-IN')}</span>`;
+    const costBtnText = costVal > 0 ? `₹ ${costVal.toLocaleString('en-IN')}` : '+ Add Cost';
+    const costHtml = canApprove ? `
+      <button class="btn btn-sm btn-outline-success py-0.5 px-2 fs-8 fw-bold btn-edit-cost" data-id="${log.id}" title="Click to add or edit repair cost">
+        ${costBtnText} <i class="fa-solid fa-pen ms-1 fs-9"></i>
+      </button>
+    ` : `<span class="badge bg-success-subtle text-success border border-success-subtle fs-8 fw-bold">₹ ${costVal.toLocaleString('en-IN')}</span>`;
 
     const html = `
       <div class="${cardClass}" draggable="${isDraggable}" ondragstart="drag(event, '${log.id}')" data-id="${log.id}">
@@ -261,16 +271,50 @@ async function moveCardStatus(id, newStatus) {
     Swal.fire('Access Denied', 'You do not have permission to change maintenance task statuses.', 'error');
     return;
   }
+
+  const log = currentLogs.find(l => String(l.id) === String(id));
+  const currentCost = log ? (parseFloat(log.cost) || 0) : 0;
+  let finalCost = currentCost;
+
+  if (newStatus === 'Resolved' || newStatus === 'Completed') {
+    const result = await Swal.fire({
+      title: 'Complete Maintenance Task',
+      html: `
+        <p class="text-muted small mb-3">Verify or enter the final servicing/repair cost for task <strong>${id}</strong>:</p>
+        <div class="text-start">
+          <label class="form-label-custom fw-bold fs-7 mb-1">Final Maintenance Cost (₹ INR) <span class="text-danger">*</span></label>
+          <input type="number" id="swal-maint-cost" class="form-control form-control-custom" value="${currentCost}" min="0" placeholder="e.g. 5000">
+        </div>
+      `,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#10B981',
+      cancelButtonColor: '#64748B',
+      confirmButtonText: '✔ Save Cost & Complete',
+      cancelButtonText: 'Cancel',
+      preConfirm: () => {
+        const costInput = document.getElementById('swal-maint-cost');
+        const val = costInput ? costInput.value : '';
+        if (val === '' || Number(val) < 0) {
+          Swal.showValidationMessage('Please enter a valid cost (0 or greater).');
+          return false;
+        }
+        return val;
+      }
+    });
+
+    if (!result.isConfirmed) return;
+    finalCost = parseFloat(result.value) || 0;
+  }
+
   window.AssetFlowLoader.show();
   try {
-    // Treat Resolved as Completed in local storage compatibility
-    const apiStatus = newStatus === 'Resolved' ? 'Completed' : newStatus;
+    const apiStatus = (newStatus === 'Resolved' || newStatus === 'Completed') ? 'Completed' : newStatus;
     
-    // Update API state
-    await window.ApiService.maintenance.updateStatus(id, apiStatus);
+    // Update API state with cost
+    await window.ApiService.maintenance.updateStatus(id, apiStatus, finalCost);
 
     // Sync Asset status
-    const log = currentLogs.find(l => l.id === id);
     if (log) {
       await updateAssetMaintenanceState(log.assetId, newStatus);
     }
@@ -279,12 +323,12 @@ async function moveCardStatus(id, newStatus) {
       toast: true,
       position: 'top-end',
       showConfirmButton: false,
-      timer: 2000,
+      timer: 2500,
       timerProgressBar: true
     });
     Toast.fire({
       icon: 'success',
-      title: `Task moved to ${newStatus}`
+      title: (newStatus === 'Resolved' || newStatus === 'Completed') ? `Task Resolved (Cost: ₹${finalCost.toLocaleString('en-IN')})` : `Task moved to ${newStatus}`
     });
 
     await loadMaintenanceData();
@@ -330,6 +374,61 @@ async function setupEventListeners() {
       kanbanViewEl.classList.add('d-none');
     });
   }
+
+  // Direct Edit/Add Cost Button on Kanban Cards & Table rows
+  $(document).on('click', '.btn-edit-cost', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    const id = $(this).attr('data-id');
+    const log = currentLogs.find(l => String(l.id) === String(id));
+    const currentCost = log ? (parseFloat(log.cost) || 0) : 0;
+
+    Swal.fire({
+      title: 'Update Maintenance Cost',
+      html: `
+        <p class="text-muted small mb-3">Set or update the repair/maintenance cost for task <strong>${id}</strong> (${escapeHtml(log?.assetName || '')}):</p>
+        <div class="text-start">
+          <label class="form-label-custom fw-bold fs-7 mb-1">Maintenance Cost (₹ INR) <span class="text-danger">*</span></label>
+          <input type="number" id="swal-direct-cost-input" class="form-control form-control-custom" value="${currentCost}" min="0" placeholder="e.g. 5000">
+        </div>
+      `,
+      icon: 'info',
+      showCancelButton: true,
+      confirmButtonColor: '#10B981',
+      cancelButtonColor: '#64748B',
+      confirmButtonText: '✔ Save Cost',
+      cancelButtonText: 'Cancel',
+      preConfirm: () => {
+        const val = document.getElementById('swal-direct-cost-input').value;
+        if (val === '' || Number(val) < 0) {
+          Swal.showValidationMessage('Please enter a valid cost (0 or greater).');
+          return false;
+        }
+        return val;
+      }
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        const newCost = parseFloat(result.value) || 0;
+        window.AssetFlowLoader.show();
+        try {
+          await window.ApiService.maintenance.updateStatus(id, log.status, newCost);
+          
+          Swal.fire({
+            title: 'Cost Updated!',
+            text: `Maintenance cost set to ₹${newCost.toLocaleString('en-IN')}.`,
+            icon: 'success',
+            confirmButtonColor: '#2563EB'
+          });
+
+          await loadMaintenanceData();
+        } catch (err) {
+          Swal.fire('Error', err.message, 'error');
+        } finally {
+          window.AssetFlowLoader.hide();
+        }
+      }
+    });
+  });
 
   // Manual Move Buttons on Kanban Cards
   $(document).on('click', '.btn-move', async function() {
@@ -403,41 +502,58 @@ async function setupEventListeners() {
     });
   }
 
-  // Resolve (Mark Completed) Action from Table View
-  $('#maintenance-table').on('click', '.btn-resolve', function() {
+  // Resolve (Mark Completed) Action from Table View & Kanban Board
+  $('#maintenance-table, #kanban-board').on('click', '.btn-resolve', function() {
     const role = window.RbacService.getCurrentUserRole();
     const canApproveMaint = window.RbacService.hasPermission(role, 'approve_maintenance');
     if (!canApproveMaint) {
       Swal.fire('Access Denied', 'You do not have permission to resolve maintenance tasks.', 'error');
       return;
     }
-    const tr = $(this).closest('tr');
-    const id = tr.attr('data-id');
+    const elem = $(this).closest('[data-id]');
+    const id = elem.attr('data-id');
+    const log = currentLogs.find(l => String(l.id) === String(id));
+    const currentCost = log ? (parseFloat(log.cost) || 0) : 0;
 
     Swal.fire({
-      title: 'Complete Maintenance?',
-      text: `Are you sure you want to mark task ${id} as completed?`,
+      title: 'Complete Maintenance Task',
+      html: `
+        <p class="text-muted small mb-3">Verify or enter the final servicing/repair cost for task <strong>${id}</strong>:</p>
+        <div class="text-start">
+          <label class="form-label-custom fw-bold fs-7 mb-1">Final Maintenance Cost (₹ INR) <span class="text-danger">*</span></label>
+          <input type="number" id="swal-maint-cost" class="form-control form-control-custom" value="${currentCost}" min="0" placeholder="e.g. 5000">
+        </div>
+      `,
       icon: 'question',
       showCancelButton: true,
       confirmButtonColor: '#10B981',
       cancelButtonColor: '#64748B',
-      confirmButtonText: 'Yes, complete',
-      cancelButtonText: 'Cancel'
+      confirmButtonText: '✔ Save Cost & Complete',
+      cancelButtonText: 'Cancel',
+      preConfirm: () => {
+        const costInput = document.getElementById('swal-maint-cost');
+        const val = costInput ? costInput.value : '';
+        if (val === '' || Number(val) < 0) {
+          Swal.showValidationMessage('Please enter a valid cost (0 or greater).');
+          return false;
+        }
+        return val;
+      }
     }).then(async (result) => {
       if (result.isConfirmed) {
+        const finalCost = parseFloat(result.value) || 0;
         window.AssetFlowLoader.show();
         try {
-          await window.ApiService.maintenance.updateStatus(id, 'Completed');
+          await window.ApiService.maintenance.updateStatus(id, 'Completed', finalCost);
           
           // Sync asset state
-          const log = currentLogs.find(l => l.id === id);
           if (log) {
             await updateAssetMaintenanceState(log.assetId, 'Resolved');
           }
 
           Swal.fire({
-            title: 'Task Resolved',
-            text: 'Maintenance work marked as completed.',
+            title: 'Task Resolved!',
+            text: `Maintenance work completed with cost ₹${finalCost.toLocaleString('en-IN')}.`,
             icon: 'success',
             confirmButtonColor: '#2563EB'
           });

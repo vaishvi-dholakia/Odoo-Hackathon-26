@@ -553,12 +553,16 @@ app.post('/api/maintenance', authenticateToken, async (req, res) => {
 
 app.put('/api/maintenance/:id/status', authenticateToken, async (req, res) => {
   const { id } = req.params;
-  const { status } = req.body;
+  const { status, cost } = req.body;
   try {
-    await db.query('UPDATE maintenance SET status = ? WHERE id = ?', [status, id]);
+    if (cost !== undefined && cost !== null) {
+      await db.query('UPDATE maintenance SET status = ?, cost = ? WHERE id = ?', [status, cost, id]);
+    } else {
+      await db.query('UPDATE maintenance SET status = ? WHERE id = ?', [status, id]);
+    }
 
-    // If resolved, rejected, or cancelled, mark asset as Active
-    if (status === 'Resolved' || status === 'Rejected' || status === 'Cancelled') {
+    // If resolved, completed, rejected, or cancelled, mark asset as Active
+    if (status === 'Resolved' || status === 'Completed' || status === 'Rejected' || status === 'Cancelled') {
       const logs = await db.query('SELECT assetId FROM maintenance WHERE id = ?', [id]);
       if (logs.length > 0) {
         await db.query('UPDATE assets SET status = "Active" WHERE id = ?', [logs[0].assetId]);

@@ -298,13 +298,13 @@ function checkConflictAndRenderTimeline() {
       const bObj = dayBookings.find(b => (h.start < b.endTime && h.end > b.startTime));
       const bookedByName = bObj ? bObj.bookedBy : 'Staff';
       gridHtml += `
-        <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1 fs-8 slot-badge" title="Booked by ${escapeHtml(bookedByName)}" style="cursor: not-allowed;">
+        <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-3 py-1.5 fs-8 slot-badge" title="Booked by ${escapeHtml(bookedByName)}" style="cursor: not-allowed;">
           <i class="fa-solid fa-lock me-1"></i>${h.label}
         </span>
       `;
     } else {
       gridHtml += `
-        <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 fs-8 slot-badge btn-select-time-slot" data-start="${h.start}" data-end="${h.end}" style="cursor: pointer;" title="Click to select this slot">
+        <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-1.5 fs-8 slot-badge btn-select-time-slot" data-start="${h.start}" data-end="${h.end}" style="cursor: pointer;" title="Click to select this slot">
           <i class="fa-solid fa-check me-1"></i>${h.label}
         </span>
       `;

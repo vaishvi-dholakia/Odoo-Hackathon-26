@@ -120,67 +120,150 @@
               </form>
             </div>
 
-            <!-- Department Management Section (Admin Only) -->
-            <div class="card-custom mt-4 shadow-sm" id="dept-admin-section" style="display: none;">
-              <h5 class="fw-bold mb-4 border-bottom pb-3"><i class="fa-solid fa-sitemap text-primary me-2"></i>Department Management</h5>
+            <!-- Modern 4-Tab Navigation Toolbar (Admin Only) -->
+            <div class="card-custom mt-4 p-2.5 shadow-sm" id="org-management-tabs-bar" style="display: none;">
+              <ul class="nav nav-pills nav-fill gap-2" id="orgTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                  <button class="nav-link active fw-bold fs-7 py-2.5 border" id="tab-depts-btn" data-bs-toggle="pill" data-bs-target="#pane-departments" type="button" role="tab">
+                    <i class="fa-solid fa-sitemap me-2"></i>Department Management
+                  </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                  <button class="nav-link fw-bold fs-7 py-2.5 border" id="tab-heads-btn" data-bs-toggle="pill" data-bs-target="#pane-heads" type="button" role="tab">
+                    <i class="fa-solid fa-users-gear me-2"></i>User Management & Dept Heads
+                  </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                  <button class="nav-link fw-bold fs-7 py-2.5 border" id="tab-directory-btn" data-bs-toggle="pill" data-bs-target="#pane-directory" type="button" role="tab">
+                    <i class="fa-solid fa-address-book me-2"></i>System Users Directory
+                  </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                  <button class="nav-link fw-bold fs-7 py-2.5 border" id="tab-alumni-btn" data-bs-toggle="pill" data-bs-target="#pane-alumni" type="button" role="tab">
+                    <i class="fa-solid fa-clock-rotate-left me-2"></i>Former Heads & Alumni
+                  </button>
+                </li>
+              </ul>
+            </div>
+
+            <!-- Tab Content Panes -->
+            <div class="tab-content mt-3" id="orgTabsContent" style="display: none;">
               
-              <!-- Add Department Form -->
-              <form id="add-dept-form" class="mb-4">
-                <label for="new-dept-name" class="form-label-custom">Add New Department</label>
-                <div class="input-group">
-                  <input type="text" id="new-dept-name" class="form-control form-control-custom" placeholder="e.g. Research & Development" required>
-                  <button type="submit" class="btn btn-primary-custom text-white" id="btn-add-dept">Add Department</button>
+              <!-- Tab 1: Department Management Section -->
+              <div class="tab-pane fade show active" id="pane-departments" role="tabpanel">
+                <div class="card-custom shadow-sm" id="dept-admin-section">
+                  <h5 class="fw-bold mb-4 border-bottom pb-3"><i class="fa-solid fa-sitemap text-primary me-2"></i>Department Management</h5>
+                  
+                  <!-- Add Department Form -->
+                  <form id="add-dept-form" class="mb-4">
+                    <label for="new-dept-name" class="form-label-custom">Add New Department</label>
+                    <div class="input-group">
+                      <input type="text" id="new-dept-name" class="form-control form-control-custom" placeholder="e.g. Research & Development" required>
+                      <button type="submit" class="btn btn-primary-custom text-white" id="btn-add-dept">Add Department</button>
+                    </div>
+                  </form>
+
+                  <!-- Departments List -->
+                  <h6 class="fw-bold mb-3">Existing Departments</h6>
+                  <div class="table-responsive">
+                    <table class="table table-custom align-middle">
+                      <thead>
+                        <tr>
+                          <th style="width: 80px;">#</th>
+                          <th>Department Name</th>
+                          <th style="width: 120px;" class="text-end">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody id="departments-list-body">
+                        <!-- Loaded dynamically -->
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-              </form>
-
-              <!-- Departments List -->
-              <h6 class="fw-bold mb-3">Existing Departments</h6>
-              <div class="table-responsive">
-                <table class="table table-custom align-middle">
-                  <thead>
-                    <tr>
-                      <th style="width: 80px;">#</th>
-                      <th>Department Name</th>
-                      <th style="width: 120px;" class="text-end">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody id="departments-list-body">
-                    <!-- Loaded dynamically -->
-                  </tbody>
-                </table>
               </div>
+
+              <!-- Tab 2: Department Head Assignments Card -->
+              <div class="tab-pane fade" id="pane-heads" role="tabpanel">
+                <div class="card-custom shadow-sm" id="dept-heads-assignment-card">
+                  <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-3 flex-wrap gap-2">
+                    <h5 class="fw-bold mb-0"><i class="fa-solid fa-users me-2 text-primary"></i>User Management & Department Heads</h5>
+                    <button class="btn btn-primary-custom text-white btn-sm" data-bs-toggle="modal" data-bs-target="#addHeadModal">
+                      <i class="fa-solid fa-user-plus me-1"></i>Register New User
+                    </button>
+                  </div>
+                  <p class="text-muted small mb-4">Assign exactly one Department Head for each department. Reassigning a department's head will automatically demote the old head to an Employee role.</p>
+                  <div class="table-custom-wrapper">
+                    <table class="table-custom mb-0">
+                      <thead>
+                        <tr>
+                          <th>Department</th>
+                          <th>Head Name</th>
+                          <th>Head Email</th>
+                          <th>Assign New Head</th>
+                        </tr>
+                      </thead>
+                      <tbody id="dept-heads-table-body">
+                        <!-- Dynamically populated -->
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Tab 3: System Users Directory Card -->
+              <div class="tab-pane fade" id="pane-directory" role="tabpanel">
+                <div class="card-custom shadow-sm" id="system-users-card">
+                  <h5 class="fw-bold mb-3 border-bottom pb-3"><i class="fa-solid fa-address-book me-2 text-primary"></i>System Users Directory</h5>
+                  <p class="text-muted small mb-4">A complete directory of all registered users in the system, including Asset Managers and Employees.</p>
+                  <div class="table-custom-wrapper">
+                    <table class="table-custom mb-0">
+                      <thead>
+                        <tr>
+                          <th>Name</th>
+                          <th>Email</th>
+                          <th>Role</th>
+                          <th>Department</th>
+                          <th>Status</th>
+                        </tr>
+                      </thead>
+                      <tbody id="system-users-table-body">
+                        <!-- Dynamically populated -->
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Tab 4: Former Department Heads & Alumni Card -->
+              <div class="tab-pane fade" id="pane-alumni" role="tabpanel">
+                <div class="card-custom shadow-sm" id="dept-transitions-card">
+                  <h5 class="fw-bold mb-3 border-bottom pb-3"><i class="fa-solid fa-clock-rotate-left me-2 text-primary"></i>Former Department Heads & Alumni</h5>
+                  <p class="text-muted small mb-4">View the status and transition details of previous Department Heads (retired, transferred, etc.).</p>
+                  <div class="table-custom-wrapper">
+                    <table class="table-custom mb-0">
+                      <thead>
+                        <tr>
+                          <th>Name</th>
+                          <th>Email</th>
+                          <th>Former/Current Dept</th>
+                          <th>Transition Status</th>
+                          <th>Transition Notes / Location</th>
+                        </tr>
+                      </thead>
+                      <tbody id="dept-transitions-table-body">
+                        <!-- Dynamically populated -->
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
             </div>
 
-            <!-- Department Head Assignments Card -->
-            <div class="card-custom mt-4 shadow-sm" id="dept-heads-assignment-card" style="display: none;">
-              <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-3 flex-wrap gap-2">
-                <h5 class="fw-bold mb-0"><i class="fa-solid fa-users me-2 text-primary"></i>User Management & Department Heads</h5>
-                <button class="btn btn-primary-custom text-white btn-sm" data-bs-toggle="modal" data-bs-target="#addHeadModal">
-                  <i class="fa-solid fa-user-plus me-1"></i>Register New User
-                </button>
-              </div>
-              <p class="text-muted small mb-4">Assign exactly one Department Head for each department. Reassigning a department's head will automatically demote the old head to an Employee role.</p>
-              <div class="table-custom-wrapper">
-                <table class="table-custom mb-0">
-                  <thead>
-                    <tr>
-                      <th>Department</th>
-                      <th>Head Name</th>
-                      <th>Head Email</th>
-                      <th>Assign New Head</th>
-                    </tr>
-                  </thead>
-                  <tbody id="dept-heads-table-body">
-                    <!-- Dynamically populated -->
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <!-- Add Department Head Modal -->
+            <!-- Add Department Head / User Modal -->
             <div class="modal fade" id="addHeadModal" tabindex="-1" aria-labelledby="addHeadModalLabel" aria-hidden="true">
               <div class="modal-dialog modal-dialog-centered">
-                <div class="modal-content border-0 shadow">
+                <div class="modal-content border-0 shadow" style="border-radius: var(--border-radius); background-color: var(--card-bg);">
                   <div class="modal-header border-bottom">
                     <h5 class="modal-title fw-bold" id="addHeadModalLabel"><i class="fa-solid fa-user-plus me-2 text-primary"></i>Register New User</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -223,50 +306,6 @@
                     </div>
                   </form>
                 </div>
-              </div>
-            </div>
-
-            <!-- Former Department Heads & Alumni Card -->
-            <div class="card-custom mt-4 shadow-sm" id="dept-transitions-card" style="display: none;">
-              <h5 class="fw-bold mb-3 border-bottom pb-3"><i class="fa-solid fa-clock-rotate-left me-2 text-primary"></i>Former Department Heads & Alumni</h5>
-              <p class="text-muted small mb-4">View the status and transition details of previous Department Heads (retired, transferred, etc.).</p>
-              <div class="table-custom-wrapper">
-                <table class="table-custom mb-0">
-                  <thead>
-                    <tr>
-                      <th>Name</th>
-                      <th>Email</th>
-                      <th>Former/Current Dept</th>
-                      <th>Transition Status</th>
-                      <th>Transition Notes / Location</th>
-                    </tr>
-                  </thead>
-                  <tbody id="dept-transitions-table-body">
-                    <!-- Dynamically populated -->
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <!-- System Users Directory Card -->
-            <div class="card-custom mt-4 shadow-sm" id="system-users-card" style="display: none;">
-              <h5 class="fw-bold mb-3 border-bottom pb-3"><i class="fa-solid fa-address-book me-2 text-primary"></i>System Users Directory</h5>
-              <p class="text-muted small mb-4">A complete directory of all registered users in the system, including Asset Managers and Employees.</p>
-              <div class="table-custom-wrapper">
-                <table class="table-custom mb-0">
-                  <thead>
-                    <tr>
-                      <th>Name</th>
-                      <th>Email</th>
-                      <th>Role</th>
-                      <th>Department</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody id="system-users-table-body">
-                    <!-- Dynamically populated -->
-                  </tbody>
-                </table>
               </div>
             </div>
 

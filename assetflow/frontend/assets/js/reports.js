@@ -26,76 +26,112 @@ async function renderMockupWidgets() {
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
   const textColor = isDark ? '#94A3B8' : '#64748B';
 
+  const role = window.RbacService.getCurrentUserRole();
+  const user = window.RbacService.getCurrentUser() || {};
+  const userDept = user.department || 'IT';
+  const isDeptHead = (role === 'Department Head' || role === 'DepartmentHead');
+
+  // Update Page Header Title & Subtitle for Department Head
+  const pageTitleEl = document.querySelector('h2.fw-bold');
+  const pageSubTitleEl = document.querySelector('h2.fw-bold + p');
+  if (isDeptHead) {
+    if (pageTitleEl) pageTitleEl.textContent = `Department Analytics (${userDept})`;
+    if (pageSubTitleEl) pageSubTitleEl.textContent = `Real-time asset utilization, maintenance expenses, and resource reports for ${userDept} Department.`;
+    
+    // Update Chart 1 Card Title
+    const chart1Box = document.getElementById('chart-utilization-dept');
+    if (chart1Box && chart1Box.closest('.card-custom')) {
+      const h5 = chart1Box.closest('.card-custom').querySelector('h5');
+      const p = chart1Box.closest('.card-custom').querySelector('p');
+      if (h5) h5.innerHTML = `<i class="fa-solid fa-chart-pie me-2 text-primary"></i>Category Asset Distribution`;
+      if (p) p.textContent = `Asset category breakdown for ${userDept} Department`;
+    }
+  } else {
+    if (pageTitleEl) pageTitleEl.textContent = `System Analytics`;
+    if (pageSubTitleEl) pageSubTitleEl.textContent = `Generate, review, and export financial and operational reports`;
+  }
+
   try {
     let analytics = null;
-    try {
-      analytics = await window.ApiService.reports.getAnalytics();
-    } catch (e) {
-      console.warn("Analytics endpoint fetch error:", e);
-    }
     
-    // Fallback if endpoint returns null/undefined or fails
-    if (!analytics || typeof analytics !== 'object' || typeof analytics.totalAssetsCount !== 'number') {
-      console.warn("Computing analytics client-side from live DB tables...");
-      const [assets, maintenance, bookings, allocations] = await Promise.all([
-        window.ApiService.assets.list().catch(() => []),
-        window.ApiService.maintenance.list().catch(() => []),
-        window.ApiService.bookings.list().catch(() => []),
-        window.ApiService.allocations.list().catch(() => [])
-      ]);
+    // Compute real-time analytics from DB tables (scoped by role)
+    console.warn("Computing analytics from live DB tables...");
+    const [assets, maintenance, bookings, allocations] = await Promise.all([
+      window.ApiService.assets.list().catch(() => []),
+      window.ApiService.maintenance.list().catch(() => []),
+      window.ApiService.bookings.list().catch(() => []),
+      window.ApiService.allocations.list().catch(() => [])
+    ]);
 
-      const assetList = Array.isArray(assets) ? assets : [];
-      const maintList = Array.isArray(maintenance) ? maintenance : [];
-      const bookingList = Array.isArray(bookings) ? bookings : [];
-      const allocList = Array.isArray(allocations) ? allocations : [];
+    let assetList = Array.isArray(assets) ? assets : [];
+    let maintList = Array.isArray(maintenance) ? maintenance : [];
+    let bookingList = Array.isArray(bookings) ? bookings : [];
+    let allocList = Array.isArray(allocations) ? allocations : [];
 
-      const totalValuation = assetList.reduce((sum, a) => sum + (parseFloat(a.cost || a.value) || 0), 0);
-      const totalMaintenanceCost = maintList.reduce((sum, m) => sum + (parseFloat(m.cost) || 0), 0);
-
-      const deptMap = {};
-      assetList.forEach(a => {
-        const dept = a.department || 'General';
-        deptMap[dept] = (deptMap[dept] || 0) + 1;
-      });
-
-      const statusMap = {};
-      assetList.forEach(a => {
-        const st = a.status || 'Active';
-        statusMap[st] = (statusMap[st] || 0) + 1;
-      });
-
-      const usageMap = {};
-      bookingList.forEach(b => {
-        if (b.resourceName) {
-          usageMap[b.resourceName] = (usageMap[b.resourceName] || 0) + 1;
-        }
-      });
-      allocList.forEach(al => {
-        if (al.assetName) {
-          usageMap[al.assetName] = (usageMap[al.assetName] || 0) + 1;
-        }
-      });
-
-      const mostUsedList = Object.keys(usageMap)
-        .map(name => ({ name, count: usageMap[name] }))
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 5);
-
-      const idleList = assetList
-        .filter(a => !a.owner && a.status !== 'Disposed')
-        .slice(0, 5)
-        .map(a => ({ id: a.id, name: a.name, location: a.location || 'Central Stock' }));
-
-      analytics = {
-        totalValuation,
-        totalMaintenanceCost,
-        totalAssetsCount: assetList.length,
-        deptDistribution: deptMap,
-        statusDistribution: statusMap,
-        mostUsedList,
-        idleList
-      };
+    // STRICT DEPARTMENT-HEAD SCOPING
+    if (isDeptHead) {
+      const deptAllocAssetIds = new Set(
+        allocList.filter(al => al.department === userDept).map(al => String(al.assetId))
+      );
+      assetList = assetList.filter(a => a.department === userDept || deptAllocAssetIds.has(String(a.id)));
+      
+      const deptAssetIds = new Set(assetList.map(a => String(a.id)));
+      maintList = maintList.filter(m => deptAssetIds.has(String(m.assetId)));
+      allocList = allocList.filter(al => al.department === userDept);
+      bookingList = bookingList.filter(b => b.department === userDept);
     }
+
+    const totalValuation = assetList.reduce((sum, a) => sum + (parseFloat(a.cost || a.value) || 0), 0);
+    const totalMaintenanceCost = maintList.reduce((sum, m) => sum + (parseFloat(m.cost) || 0), 0);
+
+    // Distribution map (If Dept Head: show Category breakdown; If Admin: show Department breakdown)
+    const deptMap = {};
+    assetList.forEach(a => {
+      const key = isDeptHead ? (a.type || a.category || 'Hardware') : (a.department || 'General');
+      deptMap[key] = (deptMap[key] || 0) + 1;
+    });
+
+    const statusMap = {};
+    assetList.forEach(a => {
+      const st = a.status || 'Active';
+      statusMap[st] = (statusMap[st] || 0) + 1;
+    });
+
+    const usageMap = {};
+    bookingList.forEach(b => {
+      if (b.resourceName) {
+        usageMap[b.resourceName] = (usageMap[b.resourceName] || 0) + 1;
+      }
+    });
+    allocList.forEach(al => {
+      if (al.assetName) {
+        usageMap[al.assetName] = (usageMap[al.assetName] || 0) + 1;
+      }
+    });
+
+    const mostUsedList = Object.keys(usageMap)
+      .map(name => ({ name, count: usageMap[name] }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+
+    const idleList = assetList
+      .filter(a => !a.owner && a.status !== 'Disposed')
+      .slice(0, 5)
+      .map(a => ({ id: a.id, name: a.name, location: a.location || 'Central Stock' }));
+
+    analytics = {
+      totalValuation,
+      totalMaintenanceCost,
+      totalAssetsCount: assetList.length,
+      deptDistribution: deptMap,
+      statusDistribution: statusMap,
+      mostUsedList,
+      idleList,
+      isDeptHead,
+      userDept
+    };
+
+    window.analyticsDataCache = analytics;
 
     // 1. Update KPI Values
     const totalPort = document.getElementById('val-total-portfolio');
@@ -166,18 +202,14 @@ async function renderMockupWidgets() {
         listMostUsed.innerHTML = `<div class="p-3 text-center text-muted fs-7 italic border rounded-3 bg-body-tertiary">No asset allocations or bookings logged yet.</div>`;
       } else {
         let html = '';
-        const rankBadges = ['bg-warning text-dark', 'bg-secondary text-white', 'bg-danger text-white', 'bg-primary text-white', 'bg-info text-dark'];
-        items.forEach((item, index) => {
+        items.forEach((item) => {
           html += `
-            <div class="p-2.5 rounded-3 border bg-body-tertiary d-flex justify-content-between align-items-center">
-              <div class="d-flex align-items-center gap-2.5">
-                <span class="badge ${rankBadges[index] || 'bg-secondary'} rounded-circle p-2 fs-8 fw-bold" style="width:24px; height:24px; display:inline-flex; align-items:center; justify-content:center;">${index + 1}</span>
-                <div>
-                  <div class="fw-bold fs-7 text-body">${escapeHtml(item.name)}</div>
-                  <small class="text-muted fs-8"><i class="fa-solid fa-chart-line me-1 text-danger"></i>High Demand Resource</small>
-                </div>
+            <div class="p-3.5 rounded-3 border bg-body-tertiary d-flex justify-content-between align-items-center">
+              <div>
+                <div class="fw-bold fs-6 text-body mb-1">${escapeHtml(item.name)}</div>
+                <small class="text-muted fs-7"><i class="fa-solid fa-fire me-1 text-danger"></i>High Demand Resource</small>
               </div>
-              <span class="badge bg-danger text-white px-2.5 py-1 rounded-pill fs-7 fw-bold">
+              <span class="badge bg-danger text-white px-3 py-1.5 rounded-pill fs-7 fw-bold">
                 <i class="fa-solid fa-repeat me-1"></i>${item.count} Use(s)
               </span>
             </div>
@@ -197,15 +229,12 @@ async function renderMockupWidgets() {
         let idleHtml = '';
         idleItems.forEach(item => {
           idleHtml += `
-            <div class="p-2.5 rounded-3 border bg-body-tertiary d-flex justify-content-between align-items-center">
-              <div class="d-flex align-items-center gap-2">
-                <i class="fa-solid fa-box text-primary fs-6"></i>
-                <div>
-                  <div class="fw-bold fs-7 text-body">${escapeHtml(item.name)} <span class="badge bg-primary-subtle text-primary ms-1 fs-8">${escapeHtml(item.id)}</span></div>
-                  <small class="text-muted fs-8"><i class="fa-solid fa-location-dot me-1 text-muted"></i>${escapeHtml(item.location)}</small>
-                </div>
+            <div class="p-3.5 rounded-3 border bg-body-tertiary d-flex justify-content-between align-items-center">
+              <div>
+                <div class="fw-bold fs-6 text-body mb-1">${escapeHtml(item.name)} <span class="badge bg-primary-subtle text-primary ms-1 fs-7">${escapeHtml(item.id)}</span></div>
+                <small class="text-muted fs-7"><i class="fa-solid fa-location-dot me-1 text-muted"></i>${escapeHtml(item.location)}</small>
               </div>
-              <span class="badge bg-success-subtle text-success px-2.5 py-1 rounded-pill fs-8 fw-bold">Available</span>
+              <span class="badge bg-success-subtle text-success px-3 py-1.5 rounded-pill fs-7 fw-bold">Available</span>
             </div>
           `;
         });
@@ -253,66 +282,288 @@ function setupEventListeners() {
     }
   });
 
-  // CSV Export Action
+  const role = window.RbacService.getCurrentUserRole();
+  const user = window.RbacService.getCurrentUser() || {};
+  const userDept = user.department || 'IT';
+  const isDeptHead = (role === 'Department Head' || role === 'DepartmentHead');
+
+  async function getReportAnalyticsData() {
+    return window.analyticsDataCache || {};
+  }
+
+  // Live CSV Export Action (Scoped by Role)
   const csvBtn = document.getElementById('btn-export-csv');
   if (csvBtn) {
-    csvBtn.addEventListener('click', () => {
-      const reportType = document.getElementById('report-type').value;
-      const headers = [];
-      document.querySelectorAll('#report-table-header th').forEach(th => headers.push(th.textContent));
-      
-      const rows = [];
-      document.querySelectorAll('#report-table-body tr').forEach(tr => {
-        const row = [];
-        tr.querySelectorAll('td').forEach(td => row.push(td.textContent.trim()));
-        rows.push(row);
-      });
+    csvBtn.addEventListener('click', async () => {
+      window.AssetFlowLoader.show();
+      try {
+        let [assets, allocations, maintenance] = await Promise.all([
+          window.ApiService.assets.list().catch(() => []),
+          window.ApiService.allocations.list().catch(() => []),
+          window.ApiService.maintenance.list().catch(() => [])
+        ]);
 
-      if (rows.length === 0) {
-        Swal.fire('No Data', 'There is no report ledger data to export.', 'warning');
-        return;
+        if (isDeptHead) {
+          const deptAllocAssetIds = new Set(
+            allocations.filter(al => al.department === userDept).map(al => String(al.assetId))
+          );
+          assets = assets.filter(a => a.department === userDept || deptAllocAssetIds.has(String(a.id)));
+          const deptAssetIds = new Set(assets.map(a => String(a.id)));
+          maintenance = maintenance.filter(m => deptAssetIds.has(String(m.assetId)));
+          allocations = allocations.filter(al => al.department === userDept);
+        }
+
+        let csvContent = "\uFEFF"; // Byte Order Mark for Excel UTF-8
+        
+        // Section 1: Assets Inventory
+        csvContent += `ASSET INVENTORY LEDGER (${isDeptHead ? userDept + ' Department' : 'Enterprise All'})\r\n`;
+        csvContent += '"Asset ID","Asset Name","Type","Department","Status","Location","Cost (INR)"\r\n';
+        (assets || []).forEach(a => {
+          csvContent += `"${a.id}","${(a.name||'').replace(/"/g, '""')}","${a.type||''}","${a.department||''}","${a.status||''}","${(a.location||'').replace(/"/g, '""')}","${parseFloat(a.cost||a.value)||0}"\r\n`;
+        });
+        csvContent += "\r\n";
+
+        // Section 2: Allocations
+        csvContent += `ALLOCATION ASSIGNMENTS (${isDeptHead ? userDept + ' Department' : 'Enterprise All'})\r\n`;
+        csvContent += '"Request ID","Asset ID","Asset Name","Target Department/User","Date","Status"\r\n';
+        (allocations || []).forEach(al => {
+          csvContent += `"${al.id}","${al.assetId||''}","${(al.assetName||'').replace(/"/g, '""')}","${(al.allocatedTo||al.department||'').replace(/"/g, '""')}","${al.date||''}","${al.status||''}"\r\n`;
+        });
+        csvContent += "\r\n";
+
+        // Section 3: Maintenance
+        csvContent += `MAINTENANCE EXPENDITURES (${isDeptHead ? userDept + ' Department' : 'Enterprise All'})\r\n`;
+        csvContent += '"Log ID","Asset ID","Asset Name","Type","Cost (INR)","Date","Status"\r\n';
+        (maintenance || []).forEach(m => {
+          csvContent += `"${m.id}","${m.assetId||''}","${(m.assetName||'').replace(/"/g, '""')}","${m.type||''}","${parseFloat(m.cost)||0}","${m.date||''}","${m.status||''}"\r\n`;
+        });
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `AssetFlow_${isDeptHead ? userDept + '_' : ''}Report_${new Date().toISOString().split('T')[0]}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        Swal.fire({
+          title: 'CSV Exported!',
+          text: `Report data (${isDeptHead ? userDept + ' Department' : 'Company Wide'}) exported successfully to CSV.`,
+          icon: 'success',
+          confirmButtonColor: '#2563EB'
+        });
+      } catch (err) {
+        console.error("CSV Export Error:", err);
+        Swal.fire('Export Error', 'Unable to export CSV file.', 'error');
+      } finally {
+        window.AssetFlowLoader.hide();
       }
-
-      // Generate CSV string
-      let csvContent = "\uFEFF"; // Byte Order Mark for Excel UTF-8 compliance
-      csvContent += headers.map(h => `"${h.replace(/"/g, '""')}"`).join(",") + "\r\n";
-      rows.forEach(r => {
-        csvContent += r.map(c => `"${c.replace(/"/g, '""')}"`).join(",") + "\r\n";
-      });
-
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.setAttribute("href", url);
-      link.setAttribute("download", `AssetFlow_Report_${reportType}_${new Date().toISOString().split('T')[0]}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      Swal.fire({
-        title: 'Export Success',
-        text: 'Report ledger data exported to CSV format.',
-        icon: 'success',
-        confirmButtonColor: '#2563EB'
-      });
     });
   }
 
-  // PDF Export Action (Simulated Print view)
+  // Professional 2-Page PDF Export Action (Scoped by Role)
   const pdfBtn = document.getElementById('btn-export-pdf');
   if (pdfBtn) {
-    pdfBtn.addEventListener('click', () => {
-      Swal.fire({
-        title: 'Preparing Document',
-        text: 'Compiling PDF document layout...',
-        timer: 1500,
-        showConfirmButton: false,
-        didOpen: () => {
-          Swal.showLoading();
-        }
-      }).then(() => {
-        window.print(); // Native browser print setup fits standard dashboards nicely
-      });
+    pdfBtn.addEventListener('click', async () => {
+      window.AssetFlowLoader.show();
+      try {
+        const analyticsData = await getReportAnalyticsData();
+        
+        // Get chart canvas data URLs
+        const chartUtilCanvas = document.getElementById('chart-utilization-dept');
+        const chartFreqCanvas = document.getElementById('chart-maintenance-freq');
+        
+        const chartUtilImg = chartUtilCanvas ? chartUtilCanvas.toDataURL('image/png') : '';
+        const chartFreqImg = chartFreqCanvas ? chartFreqCanvas.toDataURL('image/png') : '';
+
+        let mostUsedRows = '';
+        (analyticsData.mostUsedList || []).forEach(item => {
+          mostUsedRows += `
+            <tr>
+              <td style="padding: 10px 12px; border-bottom: 1px solid #E2E8F0; font-weight: bold; color: #1E293B;">${escapeHtml(item.name)}</td>
+              <td style="padding: 10px 12px; border-bottom: 1px solid #E2E8F0; color: #DC2626; font-weight: 600;">High Demand Resource</td>
+              <td style="padding: 10px 12px; border-bottom: 1px solid #E2E8F0; text-align: right; font-weight: bold; color: #DC2626;">${item.count} Use(s)</td>
+            </tr>
+          `;
+        });
+        if (!mostUsedRows) mostUsedRows = `<tr><td colspan="3" style="padding: 12px; text-align: center; color: #64748B;">No usage records logged.</td></tr>`;
+
+        let idleRows = '';
+        (analyticsData.idleList || []).forEach(item => {
+          idleRows += `
+            <tr>
+              <td style="padding: 10px 12px; border-bottom: 1px solid #E2E8F0; font-weight: bold; color: #1E293B;">${escapeHtml(item.name)}</td>
+              <td style="padding: 10px 12px; border-bottom: 1px solid #E2E8F0; color: #2563EB; font-weight: 600;">${escapeHtml(item.id)}</td>
+              <td style="padding: 10px 12px; border-bottom: 1px solid #E2E8F0; color: #64748B;">${escapeHtml(item.location)}</td>
+              <td style="padding: 10px 12px; border-bottom: 1px solid #E2E8F0; text-align: right; color: #10B981; font-weight: bold;">Available</td>
+            </tr>
+          `;
+        });
+        if (!idleRows) idleRows = `<tr><td colspan="4" style="padding: 12px; text-align: center; color: #64748B;">All assets currently allocated.</td></tr>`;
+
+        const reportTitleHeader = isDeptHead ? `${userDept} Departmental Audit` : 'Executive Operational & Asset Intelligence Audit';
+        const chart1HeaderTitle = isDeptHead ? 'Category Asset Distribution' : 'Department Asset Distribution';
+        const row3Label = isDeptHead ? 'Department Scope' : 'Enterprise Departments';
+        const row3Val = isDeptHead ? `${userDept} Department` : `${Object.keys(analyticsData.deptDistribution || {}).length || 1} Departments`;
+
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(`
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>AssetFlow ${isDeptHead ? userDept + ' Department' : 'Executive'} Report</title>
+            <style>
+              @page { size: A4 portrait; margin: 12mm; }
+              body { font-family: 'Helvetica Neue', Arial, sans-serif; color: #1E293B; margin: 0; padding: 0; background: #FFF; font-size: 13px; line-height: 1.5; }
+              .page { height: 267mm; box-sizing: border-box; page-break-after: always; display: flex; flex-direction: column; justify-content: space-between; }
+              .page-last { page-break-after: avoid; }
+              .header-bar { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #2563EB; padding-bottom: 12px; margin-bottom: 20px; }
+              .logo-title { font-size: 22px; font-weight: 800; color: #2563EB; letter-spacing: -0.5px; }
+              .sub-title { font-size: 11px; color: #64748B; text-transform: uppercase; font-weight: 600; margin-top: 2px; }
+              .section-title { font-size: 13px; font-weight: 700; color: #0F172A; text-transform: uppercase; border-left: 4px solid #2563EB; padding-left: 8px; margin-top: 15px; margin-bottom: 12px; }
+              .charts-row { display: flex; gap: 20px; margin-bottom: 20px; }
+              .chart-box { flex: 1; border: 1px solid #E2E8F0; border-radius: 8px; padding: 14px; text-align: center; background: #F8FAFC; }
+              .chart-box h4 { font-size: 11px; color: #334155; margin: 0 0 10px 0; text-transform: uppercase; font-weight: 700; }
+              .chart-box img { max-width: 100%; height: 190px; object-fit: contain; }
+              table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
+              th { background: #F1F5F9; color: #475569; text-transform: uppercase; font-size: 10px; font-weight: 700; padding: 9px 12px; text-align: left; border-bottom: 2px solid #CBD5E1; }
+              .footer { border-top: 1px solid #E2E8F0; padding-top: 10px; font-size: 10px; color: #94A3B8; display: flex; justify-content: space-between; }
+            </style>
+          </head>
+          <body>
+            
+            <!-- PAGE 1: CHARTS & EXECUTIVE SUMMARY -->
+            <div class="page">
+              <div>
+                <div class="header-bar">
+                  <div>
+                    <div class="logo-title">AssetFlow Analytics</div>
+                    <div class="sub-title">${reportTitleHeader}</div>
+                  </div>
+                </div>
+
+                <div class="section-title">${isDeptHead ? userDept + ' Department Analytics Overview' : 'System Asset & Maintenance Analytics Overview'}</div>
+                <div class="charts-row">
+                  <div class="chart-box">
+                    <h4>${chart1HeaderTitle}</h4>
+                    ${chartUtilImg ? `<img src="${chartUtilImg}" />` : '<div style="padding:40px; color:#94A3B8;">Chart unavailable</div>'}
+                  </div>
+                  <div class="chart-box">
+                    <h4>Asset Status Breakdown</h4>
+                    ${chartFreqImg ? `<img src="${chartFreqImg}" />` : '<div style="padding:40px; color:#94A3B8;">Chart unavailable</div>'}
+                  </div>
+                </div>
+
+                <div class="section-title">Summary Audit Indicators</div>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Metric Category</th>
+                      <th>Operational Indicator</th>
+                      <th style="text-align: right;">Current Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td style="padding:10px 12px; border-bottom:1px solid #E2E8F0; font-weight:bold;">Total Inventory Units</td>
+                      <td style="padding:10px 12px; border-bottom:1px solid #E2E8F0; color:#64748B;">Active and registered hardware assets</td>
+                      <td style="padding:10px 12px; border-bottom:1px solid #E2E8F0; text-align:right; font-weight:bold; color:#10B981;">${analyticsData.totalAssetsCount || 0} Assets</td>
+                    </tr>
+                    <tr>
+                      <td style="padding:10px 12px; border-bottom:1px solid #E2E8F0; font-weight:bold;">Maintenance Expenditures</td>
+                      <td style="padding:10px 12px; border-bottom:1px solid #E2E8F0; color:#64748B;">Total repair and servicing expense</td>
+                      <td style="padding:10px 12px; border-bottom:1px solid #E2E8F0; text-align:right; font-weight:bold; color:#EF4444;">₹ ${(analyticsData.totalMaintenanceCost || 0).toLocaleString('en-IN')}</td>
+                    </tr>
+                    <tr>
+                      <td style="padding:10px 12px; border-bottom:1px solid #E2E8F0; font-weight:bold;">${row3Label}</td>
+                      <td style="padding:10px 12px; border-bottom:1px solid #E2E8F0; color:#64748B;">Organizational audit scope</td>
+                      <td style="padding:10px 12px; border-bottom:1px solid #E2E8F0; text-align:right; font-weight:bold; color:#2563EB;">${row3Val}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div class="footer">
+                <span>AssetFlow System Compliance Engine</span>
+              </div>
+            </div>
+
+            <!-- PAGE 2: UTILIZATION & IDLE ASSETS -->
+            <div class="page page-last">
+              <div>
+                <div class="header-bar">
+                  <div>
+                    <div class="logo-title">AssetFlow Analytics</div>
+                    <div class="sub-title">Resource Utilization & Idle Stock Ledger</div>
+                  </div>
+                </div>
+
+                <div class="section-title">Most Utilized Assets & Resources</div>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Resource / Asset Name</th>
+                      <th>Demand Category</th>
+                      <th style="text-align: right;">Utilization Frequency</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${mostUsedRows}
+                  </tbody>
+                </table>
+
+                <div class="section-title" style="margin-top: 25px;">Available Idle Assets in Stock</div>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Asset Name</th>
+                      <th>Asset Code</th>
+                      <th>Current Location</th>
+                      <th style="text-align: right;">Availability Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${idleRows}
+                  </tbody>
+                </table>
+              </div>
+
+              <div>
+                <div style="margin-top: 20px; display: flex; justify-content: space-between; align-items: flex-end; padding-top: 15px; border-top: 1px dashed #CBD5E1;">
+                  <div>
+                    <div style="font-weight: bold; font-size: 11px; color: #334155;">Verified By:</div>
+                    <div style="font-size: 11px; color: #64748B; margin-top: 3px;">AssetFlow Automated Compliance Audit</div>
+                  </div>
+                  <div style="text-align: right;">
+                    <div style="font-size: 10px; color: #94A3B8;">Official Seal / Approval</div>
+                    <div style="font-weight: bold; font-size: 12px; color: #10B981; margin-top: 2px;">✔ Certified Executive Audit</div>
+                  </div>
+                </div>
+
+                <div class="footer" style="margin-top: 15px;">
+                  <span>Confidential - Internal Enterprise System Report</span>
+                </div>
+              </div>
+            </div>
+
+            <script>
+              window.onload = function() {
+                setTimeout(function() {
+                  window.print();
+                }, 400);
+              };
+            </script>
+          </body>
+          </html>
+        `);
+        printWindow.document.close();
+      } catch (err) {
+        console.error("PDF Export Error:", err);
+        Swal.fire('Error', 'Unable to generate PDF report.', 'error');
+      } finally {
+        window.AssetFlowLoader.hide();
+      }
     });
   }
 }

@@ -113,92 +113,102 @@
           </button>
         </div>
 
-        <div class="row g-4">
+        <!-- Top Row: Reserve & Conflict Detector (Left) + Active Reservations (Right) - Equal Height Stretched -->
+        <div class="row g-4 mb-4 align-items-stretch">
           
-          <!-- Left Column: Smart Conflict Detector & Quick Reserve Panel + Active Reservations -->
-          <div class="col-xl-5 col-lg-5">
-            
-            <!-- Quick Reserve & Smart Conflict Detector Panel -->
-            <div class="card-custom mb-4 p-4">
+          <!-- Top Left: Reserve & Conflict Detector Panel -->
+          <div class="col-xl-6 col-lg-6">
+            <div class="card-custom p-4 shadow-sm h-100 d-flex flex-column">
               <div class="d-flex justify-content-between align-items-center mb-3.5">
                 <h5 class="fw-bold mb-0 text-dark-custom"><i class="fa-solid fa-bolt me-2 text-primary"></i>Reserve & Conflict Detector</h5>
                 <span class="badge bg-primary-subtle text-primary rounded-pill px-3 py-1.5 fs-8 fw-bold">Live Checker</span>
               </div>
 
-              <form id="quick-booking-form">
-                <div class="mb-3.5">
-                  <label for="quick-booking-resource" class="form-label-custom fs-7 text-muted mb-1.5 fw-semibold">Select Resource <span class="text-danger">*</span></label>
-                  <select id="quick-booking-resource" class="form-select form-control-custom py-2 fs-6" required style="border-radius: 8px;">
-                    <option value="">Choose a resource...</option>
-                  </select>
+              <form id="quick-booking-form" class="d-flex flex-column justify-content-between flex-grow-1">
+                <div>
+                  <div class="mb-3.5">
+                    <label for="quick-booking-resource" class="form-label-custom fs-7 text-muted mb-1.5 fw-semibold">Select Resource <span class="text-danger">*</span></label>
+                    <select id="quick-booking-resource" class="form-select form-control-custom py-2 fs-6" required style="border-radius: 8px;">
+                      <option value="">Choose a resource...</option>
+                    </select>
+                  </div>
+
+                  <!-- AI Smart Resource Detection Card (Red Theme for Occupied Status) -->
+                  <div id="ai-resource-detection-card" class="card-custom p-3.5 mb-4 border-danger-subtle d-none" style="border-radius: 12px; background-color: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.2); overflow: hidden;">
+                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3 border-bottom border-danger-subtle pb-2">
+                      <span class="fs-7 fw-bold text-danger text-uppercase"><i class="fa-solid fa-calendar-xmark me-1.5"></i>Booked Schedule</span>
+                      <span id="ai-booking-count-badge" class="badge bg-danger text-white fs-8 px-2.5 py-1 rounded-pill fw-bold">0 Active</span>
+                    </div>
+                    <div id="ai-resource-booking-schedule-list" class="d-flex flex-column gap-2.5">
+                      <!-- Injected dynamically by AI Detector -->
+                    </div>
+                  </div>
+
+                  <div class="row g-3 mb-3.5">
+                    <div class="col-5">
+                      <label for="quick-booking-date" class="form-label-custom fs-7 text-muted mb-1.5 fw-semibold">Reservation Date <span class="text-danger">*</span></label>
+                      <input type="date" id="quick-booking-date" class="form-control form-control-custom py-2 fs-6" required style="border-radius: 8px;">
+                    </div>
+                    <div class="col-3.5" style="flex: 0 0 29%; max-width: 29%;">
+                      <label for="quick-booking-start" class="form-label-custom fs-7 text-muted mb-1.5 fw-semibold">Start Time</label>
+                      <input type="time" id="quick-booking-start" class="form-control form-control-custom py-2 fs-6" value="09:00" style="border-radius: 8px;">
+                    </div>
+                    <div class="col-3.5" style="flex: 0 0 29%; max-width: 29%;">
+                      <label for="quick-booking-end" class="form-label-custom fs-7 text-muted mb-1.5 fw-semibold">End Time</label>
+                      <input type="time" id="quick-booking-end" class="form-control form-control-custom py-2 fs-6" value="10:00" style="border-radius: 8px;">
+                    </div>
+                  </div>
+
+                  <!-- Smart Real-Time Conflict Alert Box -->
+                  <div id="quick-booking-conflict-alert" class="alert py-2 px-3 mt-3 mb-3.5 rounded-2 d-none" style="font-size: 0.78rem;">
+                    <!-- Dynamic Conflict Alert Message Injected Here -->
+                  </div>
+
+                  <!-- Visual Time Slots Grid Bar (8 AM - 6 PM) -->
+                  <div class="mb-4">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                      <span class="fs-7 fw-bold text-muted text-uppercase">Time Slots Availability Grid</span>
+                      <small class="fs-8 text-muted"><span class="badge bg-success rounded-circle p-1"></span> Available <span class="badge bg-danger rounded-circle p-1 ms-1.5"></span> Booked</small>
+                    </div>
+                    <div id="visual-time-slot-grid" class="d-flex flex-wrap gap-2.5 p-3.5 border rounded-3 bg-body-tertiary" style="min-height: 85px;">
+                      <span class="text-muted fs-7 italic">Select a resource and date to inspect slots...</span>
+                    </div>
+                  </div>
                 </div>
 
-                <!-- AI Smart Resource Detection Card (Red Theme for Occupied Status) -->
-                <div id="ai-resource-detection-card" class="card-custom p-3.5 mb-4 border-danger-subtle d-none" style="border-radius: 12px; background-color: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.2); overflow: hidden;">
-                  <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3 border-bottom border-danger-subtle pb-2">
-                    <span class="fs-7 fw-bold text-danger text-uppercase"><i class="fa-solid fa-calendar-xmark me-1.5"></i>Booked Schedule</span>
-                    <span id="ai-booking-count-badge" class="badge bg-danger text-white fs-8 px-2.5 py-1 rounded-pill fw-bold">0 Active</span>
-                  </div>
-                  <div id="ai-resource-booking-schedule-list" class="d-flex flex-column gap-2.5">
-                    <!-- Injected dynamically by AI Detector -->
-                  </div>
-                </div>
-
-                <div class="row g-3 mb-3.5">
-                  <div class="col-6">
-                    <label for="quick-booking-date" class="form-label-custom fs-7 text-muted mb-1.5 fw-semibold">Reservation Date <span class="text-danger">*</span></label>
-                    <input type="date" id="quick-booking-date" class="form-control form-control-custom py-2 fs-6" required style="border-radius: 8px;">
-                  </div>
-                  <div class="col-3">
-                    <label for="quick-booking-start" class="form-label-custom fs-7 text-muted mb-1.5 fw-semibold">Start Time</label>
-                    <input type="time" id="quick-booking-start" class="form-control form-control-custom py-2 fs-6" value="09:00" style="border-radius: 8px;">
-                  </div>
-                  <div class="col-3">
-                    <label for="quick-booking-end" class="form-label-custom fs-7 text-muted mb-1.5 fw-semibold">End Time</label>
-                    <input type="time" id="quick-booking-end" class="form-control form-control-custom py-2 fs-6" value="10:00" style="border-radius: 8px;">
-                  </div>
-                </div>
-
-                <!-- Smart Real-Time Conflict Alert Box -->
-                <div id="quick-booking-conflict-alert" class="alert py-2 px-3 mt-3 mb-3.5 rounded-2 d-none" style="font-size: 0.78rem;">
-                  <!-- Dynamic Conflict Alert Message Injected Here -->
-                </div>
-
-                <!-- Visual Time Slots Grid Bar (8 AM - 6 PM) -->
-                <div class="mb-4">
-                  <div class="d-flex justify-content-between align-items-center mb-2">
-                    <span class="fs-7 fw-bold text-muted text-uppercase">Time Slots Availability Grid</span>
-                    <small class="fs-8 text-muted"><span class="badge bg-success rounded-circle p-1"></span> Available <span class="badge bg-danger rounded-circle p-1 ms-1.5"></span> Booked</small>
-                  </div>
-                  <div id="visual-time-slot-grid" class="d-flex flex-wrap gap-2 p-3 border rounded-3 bg-body-tertiary">
-                    <span class="text-muted fs-7 italic">Select a resource and date to inspect slots...</span>
-                  </div>
-                </div>
-
-                <button type="submit" class="btn btn-primary-custom text-white w-100 py-2.5 fs-6 fw-bold" id="btn-quick-reserve" style="border-radius: 8px;">
+                <button type="submit" class="btn btn-primary-custom text-white w-100 py-2.5 fs-6 fw-bold mt-auto" id="btn-quick-reserve" style="border-radius: 8px;">
                   <i class="fa-solid fa-calendar-check me-2"></i>Reserve Slot Now
                 </button>
               </form>
             </div>
+          </div>
 
-            <!-- Active Reservations Ledger Card -->
-            <div class="card-custom mb-0 py-3">
-              <h5 class="fw-bold mb-3"><i class="fa-solid fa-list-check me-2 text-primary"></i>Active Reservations</h5>
-              <div class="bookings-scroll-container px-1" id="my-bookings-list">
+          <!-- Top Right: Active Reservations Ledger Card -->
+          <div class="col-xl-6 col-lg-6">
+            <div class="card-custom p-4 shadow-sm h-100 d-flex flex-column">
+              <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-3">
+                <h5 class="fw-bold mb-0 text-dark-custom"><i class="fa-solid fa-list-check me-2 text-primary"></i>Active Reservations</h5>
+                <span class="badge bg-info-subtle text-info border border-info-subtle rounded-pill px-3 py-1 fs-8 fw-bold">Live Status</span>
+              </div>
+              <div class="bookings-scroll-container flex-grow-1 px-1" id="my-bookings-list" style="max-height: 380px;">
                 <!-- Injected dynamically -->
               </div>
             </div>
-
           </div>
 
-          <!-- Right Column: Resource Availability Calendar -->
-          <div class="col-xl-7 col-lg-7">
-            <div class="card-custom mb-0 p-3">
-              <h6 class="fw-bold mb-3 text-uppercase text-muted fs-8"><i class="fa-solid fa-calendar-days me-2 text-primary"></i>Resource Availability Calendar</h6>
+        </div>
+
+        <!-- Bottom Row: Resource Availability Calendar (Full Width) -->
+        <div class="row g-4">
+          <div class="col-12">
+            <div class="card-custom p-4 shadow-sm">
+              <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-3">
+                <h5 class="fw-bold mb-0 text-dark-custom"><i class="fa-solid fa-calendar-days me-2 text-primary"></i>Resource Availability Calendar</h5>
+                <span class="text-muted small fs-8">Full Monthly Overview</span>
+              </div>
               <div id="calendar-widget"></div>
             </div>
           </div>
-
         </div>
 
       </div>

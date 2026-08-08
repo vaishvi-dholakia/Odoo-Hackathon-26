@@ -11,9 +11,22 @@ document.addEventListener('DOMContentLoaded', async () => {
   try {
     const role = window.RbacService.getCurrentUserRole() || 'Employee';
     
-    // Set welcome text based on role
-    document.getElementById('dashboard-welcome-title').textContent = `Dashboard - ${role} Portal`;
-    document.getElementById('dashboard-welcome-desc').textContent = `Welcome back! Real-time status for the ${role} role.`;
+    const currentUser = window.RbacService.getCurrentUser() || {};
+    const userDept = currentUser.department || 'IT';
+
+    const titleEl = document.getElementById('dashboard-welcome-title');
+    const descEl = document.getElementById('dashboard-welcome-desc');
+
+    if (role === 'Department Head' || role === 'DepartmentHead') {
+      if (titleEl) titleEl.textContent = `${userDept} Department`;
+      if (descEl) descEl.style.display = 'none';
+    } else if (role === 'Admin') {
+      if (titleEl) titleEl.textContent = `Dashboard - Admin Portal`;
+      if (descEl) descEl.style.display = 'none';
+    } else {
+      if (titleEl) titleEl.textContent = `Dashboard - ${role} Portal`;
+      if (descEl) descEl.style.display = 'none';
+    }
 
     await loadDashboardData(role);
 
@@ -163,21 +176,16 @@ function buildKpiCards(role, data) {
   let cards = [];
   if (role === 'Admin') {
     cards = [
-      { label: 'Total Assets', val: data.assets.length, desc: `₹${data.totalValue.toLocaleString()}`, icon: 'fa-boxes-stacked', bg: 'bg-primary-subtle text-primary' },
-      { label: 'Available Assets', val: data.assets.filter(a => a.status === 'Active').length, desc: 'Ready for use', icon: 'fa-circle-check', bg: 'bg-success-subtle text-success' },
-      { label: 'Allocated Assets', val: data.allocations.filter(a => a.status === 'Approved').length, desc: 'In use', icon: 'fa-right-left', bg: 'bg-info-subtle text-info' },
-      { label: 'Total Departments', val: data.departments ? data.departments.length : 5, desc: 'Enterprise groups', icon: 'fa-sitemap', bg: 'bg-warning-subtle text-warning' },
-      { label: 'Total Employees', val: data.registeredUsers ? data.registeredUsers.length : 42, desc: 'Registered staff', icon: 'fa-users', bg: 'bg-purple-subtle text-purple' },
-      { label: 'Pending Maintenance', val: data.maintenance.filter(m => m.status === 'Pending').length, desc: 'Requires action', icon: 'fa-screwdriver-wrench', bg: 'bg-danger-subtle text-danger' },
-      { label: 'Active Audit Cycles', val: 1, desc: 'Q3 Asset Audit', icon: 'fa-clipboard-check', bg: 'bg-primary-subtle text-primary' },
-      { label: 'Pending Approvals', val: data.allocations.filter(a => a.status === 'Pending Approval').length, desc: 'Awaiting Sign-off', icon: 'fa-circle-exclamation', bg: 'bg-warning-subtle text-warning' }
+      { label: 'Total Assets', val: data.assets.length, desc: `₹${data.totalValue.toLocaleString('en-IN')}`, icon: 'fa-boxes-stacked', bg: 'bg-primary-subtle text-primary' },
+      { label: 'Total Departments', val: data.departments ? data.departments.length : 0, desc: 'Enterprise groups', icon: 'fa-sitemap', bg: 'bg-warning-subtle text-warning' },
+      { label: 'Total Employees', val: data.registeredUsers ? data.registeredUsers.length : 0, desc: 'Registered staff', icon: 'fa-users', bg: 'bg-purple-subtle text-purple' },
+      { label: 'Active Audit Cycles', val: 1, desc: 'Compliance Audit', icon: 'fa-clipboard-check', bg: 'bg-info-subtle text-info' }
     ];
   } else if (role === 'Asset Manager' || role === 'AssetManager') {
     cards = [
       { label: 'Available Assets', val: data.assets.filter(a => a.status === 'Active').length, desc: 'Ready for allocation', icon: 'fa-circle-check', bg: 'bg-success-subtle text-success' },
       { label: 'Allocated Assets', val: data.allocations.filter(a => a.status === 'Approved').length, desc: 'With employees', icon: 'fa-right-left', bg: 'bg-info-subtle text-info' },
       { label: 'Pending Transfers', val: data.allocations.filter(a => a.status === 'Pending Approval').length, desc: 'Awaiting transfer approval', icon: 'fa-right-left', bg: 'bg-warning-subtle text-warning' },
-      { label: 'Assets Under Maintenance', val: data.assets.filter(a => a.status === 'Maintenance').length, desc: 'Currently in repair', icon: 'fa-screwdriver-wrench', bg: 'bg-danger-subtle text-danger' },
       { label: 'Maintenance Requests', val: data.maintenance.filter(m => m.status === 'Pending').length, desc: 'Unassigned jobs', icon: 'fa-screwdriver-wrench', bg: 'bg-primary-subtle text-primary' }
     ];
   } else if (role === 'Department Head' || role === 'DepartmentHead') {

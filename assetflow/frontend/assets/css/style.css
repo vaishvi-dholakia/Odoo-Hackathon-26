@@ -252,6 +252,27 @@ body {
   text-decoration: none;
 }
 
+/* Custom Pill Tab Borders for Org Setup */
+#orgTabs .nav-link {
+  border: 1px solid var(--border-color, #CBD5E1) !important;
+  background-color: var(--card-bg, #FFFFFF);
+  color: var(--text-color, #334155);
+  transition: all 0.2s ease-in-out;
+}
+
+#orgTabs .nav-link:hover {
+  border-color: var(--primary-color, #2563EB) !important;
+  color: var(--primary-color, #2563EB);
+  background-color: rgba(37, 99, 235, 0.05);
+}
+
+#orgTabs .nav-link.active {
+  background-color: var(--primary-color, #2563EB) !important;
+  border-color: var(--primary-color, #2563EB) !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.25);
+}
+
 /* Ripple effect styles */
 .ripple {
   position: absolute;

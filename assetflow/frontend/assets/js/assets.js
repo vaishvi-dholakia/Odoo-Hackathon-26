@@ -27,24 +27,28 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 function setupScopeDropdownForRole() {
   const scopeSelect = document.getElementById('filter-scope');
+  const scopeContainer = document.getElementById('scope-filter-container') || (scopeSelect ? scopeSelect.parentElement : null);
   if (!scopeSelect) return;
 
   const role = window.RbacService.getCurrentUserRole();
   if (role === 'Employee') {
+    if (scopeContainer) scopeContainer.style.display = 'block';
     scopeSelect.innerHTML = `
       <option value="department" selected>🏢 Department Assets</option>
       <option value="my">💻 My Assets</option>
     `;
   } else if (role === 'Department Head' || role === 'DepartmentHead') {
+    if (scopeContainer) scopeContainer.style.display = 'block';
     scopeSelect.innerHTML = `
       <option value="department" selected>🏢 Department Assets</option>
       <option value="my">💻 My Assets</option>
       <option value="all">🌐 All Company Assets</option>
     `;
   } else {
+    // Admin & Asset Manager have all assets access; hide redundant 1-item dropdown
+    if (scopeContainer) scopeContainer.style.display = 'none';
     scopeSelect.innerHTML = `
       <option value="all" selected>🌐 All Company Assets</option>
-      <option value="department">🏢 Department Assets</option>
     `;
   }
 }

@@ -13,12 +13,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Show Department & Department Head Assignment panels for Admins
     const currentUser = window.RbacService.getCurrentUser() || {};
     if (currentUser.role === 'Admin') {
-      const deptCard = document.getElementById('dept-admin-section');
-      if (deptCard) deptCard.style.display = 'block';
-      await loadDepartmentsList();
+      const tabsBar = document.getElementById('org-management-tabs-bar');
+      const tabsContent = document.getElementById('orgTabsContent');
+      if (tabsBar) tabsBar.style.display = 'block';
+      if (tabsContent) tabsContent.style.display = 'block';
 
-      const card = document.getElementById('dept-heads-assignment-card');
-      if (card) card.style.display = 'block';
+      await loadDepartmentsList();
       await loadDeptHeads();
       await loadTransitionHistory();
       await loadSystemUsers();
