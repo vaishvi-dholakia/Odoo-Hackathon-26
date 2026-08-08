@@ -100,15 +100,11 @@ Since the frontend consists of static HTML/JS/CSS files, you can open `assetflow
 
 ## 🔑 Default Credentials
 
-For quick testing, you can use the **Quick Demo Accounts** dropdown on the login screen to fill the email address. All demo accounts use the same password.
-**Password**: `Password123!`
+Upon initialization, only the default **Admin** account is seeded into the database. All other users (Asset Managers, Department Heads, Employees) must be securely registered by the Admin via the Organization Setup dashboard.
 
-| User Role | Email | Access Scope |
-| :--- | :--- | :--- |
-| **Admin** | `admin@assetflow.com` | Org configuration, department management, user registration, promotions |
-| **Asset Manager** | `manager@assetflow.com` | Assets inventory, allocation requests, audit schedules |
-| **IT Head (Dept Head)** | `it-head@assetflow.com` | IT resource approvals, department logs |
-| **Employee** | `employee@assetflow.com` | Resource bookings, hardware allocation requests |
+| User Role | Email | Password | Access Scope |
+| :--- | :--- | :--- | :--- |
+| **Admin** | `admin@assetflow.com` | `Password123!` | Org configuration, department management, user registration, promotions |
 
 ---
 
