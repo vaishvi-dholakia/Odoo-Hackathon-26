@@ -70,15 +70,37 @@ async function renderMockupWidgets() {
 
     // STRICT DEPARTMENT-HEAD SCOPING
     if (isDeptHead) {
+      const deptLower = userDept.toLowerCase();
       const deptAllocAssetIds = new Set(
-        allocList.filter(al => al.department === userDept).map(al => String(al.assetId))
+        allocList.filter(al => {
+          const alDept = (al.department || '').toLowerCase();
+          const alTarget = (al.allocatedTo || '').toLowerCase();
+          return (alDept && (alDept.includes(deptLower) || deptLower.includes(alDept))) ||
+                 (alTarget && (alTarget.includes(deptLower) || deptLower.includes(alTarget)));
+        }).map(al => String(al.assetId))
       );
-      assetList = assetList.filter(a => a.department === userDept || deptAllocAssetIds.has(String(a.id)));
+      assetList = assetList.filter(a => {
+        const aDept = (a.department || '').toLowerCase();
+        const aOwner = (a.owner || '').toLowerCase();
+        const aLoc = (a.location || '').toLowerCase();
+        return (aDept && (aDept.includes(deptLower) || deptLower.includes(aDept))) ||
+               (aOwner && (aOwner.includes(deptLower) || deptLower.includes(aOwner))) ||
+               (aLoc && (aLoc.includes(deptLower) || deptLower.includes(aLoc))) ||
+               deptAllocAssetIds.has(String(a.id));
+      });
       
       const deptAssetIds = new Set(assetList.map(a => String(a.id)));
       maintList = maintList.filter(m => deptAssetIds.has(String(m.assetId)));
-      allocList = allocList.filter(al => al.department === userDept);
-      bookingList = bookingList.filter(b => b.department === userDept);
+      allocList = allocList.filter(al => {
+        const alDept = (al.department || '').toLowerCase();
+        const alTarget = (al.allocatedTo || '').toLowerCase();
+        return (alDept && (alDept.includes(deptLower) || deptLower.includes(alDept))) ||
+               (alTarget && (alTarget.includes(deptLower) || deptLower.includes(alTarget)));
+      });
+      bookingList = bookingList.filter(b => {
+        const bDept = (b.department || '').toLowerCase();
+        return bDept && (bDept.includes(deptLower) || deptLower.includes(bDept));
+      });
     }
 
     const totalValuation = assetList.reduce((sum, a) => sum + (parseFloat(a.cost || a.value) || 0), 0);
@@ -304,13 +326,32 @@ function setupEventListeners() {
         ]);
 
         if (isDeptHead) {
+          const deptLower = userDept.toLowerCase();
           const deptAllocAssetIds = new Set(
-            allocations.filter(al => al.department === userDept).map(al => String(al.assetId))
+            allocations.filter(al => {
+              const alDept = (al.department || '').toLowerCase();
+              const alTarget = (al.allocatedTo || '').toLowerCase();
+              return (alDept && (alDept.includes(deptLower) || deptLower.includes(alDept))) ||
+                     (alTarget && (alTarget.includes(deptLower) || deptLower.includes(alTarget)));
+            }).map(al => String(al.assetId))
           );
-          assets = assets.filter(a => a.department === userDept || deptAllocAssetIds.has(String(a.id)));
+          assets = assets.filter(a => {
+            const aDept = (a.department || '').toLowerCase();
+            const aOwner = (a.owner || '').toLowerCase();
+            const aLoc = (a.location || '').toLowerCase();
+            return (aDept && (aDept.includes(deptLower) || deptLower.includes(aDept))) ||
+                   (aOwner && (aOwner.includes(deptLower) || deptLower.includes(aOwner))) ||
+                   (aLoc && (aLoc.includes(deptLower) || deptLower.includes(aLoc))) ||
+                   deptAllocAssetIds.has(String(a.id));
+          });
           const deptAssetIds = new Set(assets.map(a => String(a.id)));
           maintenance = maintenance.filter(m => deptAssetIds.has(String(m.assetId)));
-          allocations = allocations.filter(al => al.department === userDept);
+          allocations = allocations.filter(al => {
+            const alDept = (al.department || '').toLowerCase();
+            const alTarget = (al.allocatedTo || '').toLowerCase();
+            return (alDept && (alDept.includes(deptLower) || deptLower.includes(alDept))) ||
+                   (alTarget && (alTarget.includes(deptLower) || deptLower.includes(alTarget)));
+          });
         }
 
         let csvContent = "\uFEFF"; // Byte Order Mark for Excel UTF-8

@@ -65,16 +65,46 @@ async function loadDashboardData(role) {
     let filteredBookings = bookings;
 
     if (role === 'Department Head' || role === 'DepartmentHead') {
-      const deptAllocatedAssetIds = allocations
-        .filter(a => a.department === userDept && a.status === 'Approved')
-        .map(a => a.assetId);
-      filteredAssets = assets.filter(a => deptAllocatedAssetIds.includes(a.id) || a.owner === userName);
-      filteredAllocations = allocations.filter(a => a.department === userDept);
-      filteredBookings = bookings.filter(b => b.department === userDept);
+      const deptLower = (userDept || '').toLowerCase();
+      filteredAllocations = allocations.filter(a => {
+        const aDept = (a.department || '').toLowerCase();
+        const aTarget = (a.allocatedTo || '').toLowerCase();
+        return (aDept && (aDept.includes(deptLower) || deptLower.includes(aDept))) ||
+               (aTarget && (aTarget.includes(deptLower) || deptLower.includes(aTarget)));
+      });
+      const deptAllocatedAssetIds = new Set(
+        filteredAllocations.filter(a => a.status === 'Approved' && a.assetId).map(a => String(a.assetId))
+      );
+      filteredAssets = assets.filter(a => {
+        const aDept = (a.department || '').toLowerCase();
+        const aOwner = (a.owner || '').toLowerCase();
+        const aLoc = (a.location || '').toLowerCase();
+        if (aDept && (aDept.includes(deptLower) || deptLower.includes(aDept))) return true;
+        if (deptAllocatedAssetIds.has(String(a.id))) return true;
+        if (aOwner && (aOwner.includes(deptLower) || deptLower.includes(aOwner) || aOwner === userName.toLowerCase() || (currentUser.email && aOwner === currentUser.email.toLowerCase()))) return true;
+        if (aLoc && (aLoc.includes(deptLower) || deptLower.includes(aLoc))) return true;
+        return false;
+      });
+      filteredBookings = bookings.filter(b => {
+        const bDept = (b.department || '').toLowerCase();
+        return bDept && (bDept.includes(deptLower) || deptLower.includes(bDept));
+      });
     } else if (role === 'Employee') {
-      filteredAssets = assets.filter(a => a.owner === userName);
-      filteredAllocations = allocations.filter(a => a.allocatedTo === userName);
-      filteredBookings = bookings.filter(b => b.bookedBy === userName);
+      const userNames = new Set([
+        (currentUser.fullName || '').toLowerCase(),
+        (currentUser.name || '').toLowerCase(),
+        (currentUser.email || '').toLowerCase()
+      ].filter(Boolean));
+
+      const myApprovedAssetIds = new Set(
+        allocations
+          .filter(al => al.status === 'Approved' && (userNames.has((al.allocatedTo || '').toLowerCase()) || (currentUser.email && (al.requestedByEmail || '').toLowerCase() === currentUser.email.toLowerCase())))
+          .map(al => String(al.assetId))
+      );
+
+      filteredAssets = assets.filter(a => myApprovedAssetIds.has(String(a.id)) || (a.owner && userNames.has(a.owner.toLowerCase())));
+      filteredAllocations = allocations.filter(a => userNames.has((a.allocatedTo || '').toLowerCase()) || (a.requestedByEmail && a.requestedByEmail.toLowerCase() === (currentUser.email || '').toLowerCase()));
+      filteredBookings = bookings.filter(b => userNames.has((b.bookedBy || '').toLowerCase()));
     }
 
     const totalValue = filteredAssets.reduce((sum, asset) => sum + (Number(asset.value) || 0), 0);

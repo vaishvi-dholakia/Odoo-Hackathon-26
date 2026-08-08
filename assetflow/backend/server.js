@@ -62,59 +62,80 @@ app.post('/api/dev/reset-db', async (req, res) => {
 });
 
 // 1. Authentication Endpoints
-app.post('/api/auth/signup', authenticateToken, async (req, res) => {
-  if (req.user.role !== 'Admin') {
-    return res.status(403).json({ message: 'Access Denied: Only administrators can create new users.' });
-  }
+const handleRegister = async (req, res) => {
   const { email, password, fullName, role, department } = req.body;
   try {
-    const existing = await db.query('SELECT * FROM users WHERE email = ?', [email]);
+    if (!email || !password || !fullName) {
+      return res.status(400).json({ message: 'Full name, email, and password are required.' });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPassword = password.trim();
+    const cleanName = fullName.trim();
+    const cleanRole = (role || 'Employee').trim();
+    const cleanDept = (department || 'IT').trim();
+
+    const existing = await db.query('SELECT * FROM users WHERE LOWER(email) = ?', [cleanEmail]);
     if (existing.length > 0) {
-      return res.status(400).json({ message: 'Email already registered.' });
+      return res.status(400).json({ message: 'Email address is already registered.' });
     }
     
     const avatar = null;
     await db.query(
-      'INSERT INTO users (email, password, fullName, role, department, avatar, isVerified) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [email, password, fullName, role || 'Employee', department || 'IT', avatar, true]
+      'INSERT INTO users (email, password, fullName, role, department, avatar, isVerified, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [cleanEmail, cleanPassword, cleanName, cleanRole, cleanDept, avatar, true, 'Active']
     );
     res.status(201).json({ success: true, message: 'User registered successfully!' });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
-});
+};
+
+app.post('/api/auth/register', handleRegister);
+app.post('/api/auth/signup', handleRegister);
 
 app.post('/api/auth/login', async (req, res) => {
-  const { email, password, role } = req.body;
+  let { email, password, role } = req.body;
   try {
-    // 1. Verify role is selected
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Email address and password are required.' });
+    }
+
     if (!role) {
       return res.status(400).json({ message: 'Please select your role.' });
     }
 
-    // 2. Verify if any users exist for the selected role
-    const roleUsers = await db.query('SELECT * FROM users WHERE role = ?', [role]);
-    if (roleUsers.length === 0) {
-      return res.status(404).json({ message: `No ${role} accounts have been registered yet. Please contact your Administrator.` });
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPassword = password.trim();
+
+    // 1. Fetch user by email (case-insensitive)
+    const users = await db.query('SELECT * FROM users WHERE LOWER(email) = ?', [cleanEmail]);
+    if (users.length === 0) {
+      return res.status(404).json({ message: `No account found with email "${email}". Please check with your Administrator.` });
     }
 
-    // 3. Verify if entered email belongs to a user with the selected role
-    const userWithEmailAndRole = roleUsers.find(u => u.email === email);
-    if (!userWithEmailAndRole) {
-      return res.status(404).json({ message: 'No account found with this email for the selected role.' });
+    const dbUser = users[0];
+
+    // Helper to normalize role strings for flexible matching
+    const norm = (r) => (r || '').toLowerCase().replace(/[\s_]/g, '');
+
+    // 2. Check if selected role matches user's registered role
+    if (norm(role) !== norm(dbUser.role)) {
+      return res.status(400).json({ 
+        message: `Account found, but it is registered under the role "${dbUser.role}". Please select "${dbUser.role}" from the role dropdown.` 
+      });
     }
 
-    // 4. Verify password
-    if (userWithEmailAndRole.password !== password) {
-      return res.status(401).json({ message: 'Incorrect password.' });
+    // 3. Verify password
+    if ((dbUser.password || '').trim() !== cleanPassword) {
+      return res.status(401).json({ message: 'Incorrect password. Please check your password and try again.' });
     }
 
-    // 5. Verify account is active
-    if (userWithEmailAndRole.status && userWithEmailAndRole.status !== 'Active') {
-      return res.status(403).json({ message: 'Your account has been deactivated. Please contact your Administrator.' });
+    // 4. Verify account status is active
+    const userStatus = (dbUser.status || 'Active').toLowerCase();
+    if (userStatus !== 'active') {
+      return res.status(403).json({ message: `Your account status is currently "${dbUser.status}". Please contact your Administrator.` });
     }
-
-    const dbUser = userWithEmailAndRole;
 
     const userPayload = {
       email: dbUser.email,
@@ -260,7 +281,7 @@ app.get('/api/assets', async (req, res) => {
 });
 
 app.post('/api/assets', authenticateToken, async (req, res) => {
-  const { name, type, serial, status, value, location, owner } = req.body;
+  const { name, type, serial, status, value, location, owner, department } = req.body;
   try {
     // Generate AST-XXX ID
     const countRes = await db.query('SELECT COUNT(*) as count FROM assets');
@@ -268,22 +289,22 @@ app.post('/api/assets', authenticateToken, async (req, res) => {
     const newId = 'AST-' + String(count).padStart(3, '0');
 
     await db.query(
-      'INSERT INTO assets (id, name, type, serial, status, value, location, owner) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [newId, name, type, serial, status || 'Active', value, location, owner || null]
+      'INSERT INTO assets (id, name, type, serial, status, value, location, owner, department) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [newId, name, type, serial, status || 'Active', value, location, owner || null, department || null]
     );
-    res.status(201).json({ success: true, asset: { id: newId, name, type, serial, status, value, location, owner } });
+    res.status(201).json({ success: true, asset: { id: newId, name, type, serial, status, value, location, owner, department } });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
 
 app.put('/api/assets/:id', authenticateToken, async (req, res) => {
-  const { name, type, serial, status, value, location, owner } = req.body;
+  const { name, type, serial, status, value, location, owner, department } = req.body;
   const { id } = req.params;
   try {
     await db.query(
-      'UPDATE assets SET name = ?, type = ?, serial = ?, status = ?, value = ?, location = ?, owner = ? WHERE id = ?',
-      [name, type, serial, status, value, location, owner || null, id]
+      'UPDATE assets SET name = ?, type = ?, serial = ?, status = ?, value = ?, location = ?, owner = ?, department = ? WHERE id = ?',
+      [name, type, serial, status, value, location, owner || null, department || null, id]
     );
     res.json({ success: true, message: 'Asset updated successfully!' });
   } catch (err) {
@@ -329,10 +350,8 @@ app.post('/api/allocations', authenticateToken, async (req, res) => {
     if (userRole === 'Employee') {
       status = 'Pending Department Head Approval';
       targetRole = 'Department Head';
-    } else if (userRole === 'Department Head' || userRole === 'DepartmentHead') {
-      status = 'Pending Asset Manager Approval';
-      targetRole = 'Asset Manager';
-    } else if (userRole === 'Asset Manager' || userRole === 'AssetManager' || userRole === 'Admin') {
+    } else {
+      // Department Head, Asset Manager, Admin -> Instant 100% Direct Approval!
       status = 'Approved';
       targetRole = 'Approved';
     }
@@ -340,13 +359,28 @@ app.post('/api/allocations', authenticateToken, async (req, res) => {
     const targetAllocatedTo = allocatedTo || userName;
     const timeString = new Date().toISOString().replace('T', ' ').substring(0, 16);
 
+    let targetDept = userDept;
+    try {
+      const deptCheck = await db.query('SELECT name FROM departments WHERE name = ?', [targetAllocatedTo]);
+      if (deptCheck.length > 0) {
+        targetDept = deptCheck[0].name;
+      } else {
+        const userCheck = await db.query('SELECT department FROM users WHERE fullName = ? OR name = ? OR email = ? LIMIT 1', [targetAllocatedTo, targetAllocatedTo, targetAllocatedTo]);
+        if (userCheck.length > 0 && userCheck[0].department) {
+          targetDept = userCheck[0].department;
+        }
+      }
+    } catch (e) {
+      console.warn("Department lookup error during allocation:", e);
+    }
+
     await db.query(
       'INSERT INTO allocations (id, assetId, assetName, allocatedTo, date, status, department, requestedBy, requestedByEmail, targetRole, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [newId, assetId || null, assetName, targetAllocatedTo, date || new Date().toISOString().split('T')[0], status, userDept, userName, userEmail, targetRole, notes || null]
+      [newId, assetId || null, assetName, targetAllocatedTo, date || new Date().toISOString().split('T')[0], status, targetDept, userName, userEmail, targetRole, notes || null]
     );
 
     if (status === 'Approved' && assetId && assetId !== 'null' && assetId !== 'Generic') {
-      await db.query('UPDATE assets SET owner = ?, status = "Active" WHERE id = ?', [targetAllocatedTo, assetId]);
+      await db.query('UPDATE assets SET owner = ?, department = ?, status = "Active" WHERE id = ?', [targetAllocatedTo, targetDept, assetId]);
     }
 
     // Notify appropriate role
@@ -379,13 +413,19 @@ app.post('/api/allocations', authenticateToken, async (req, res) => {
 app.post('/api/assets/:id/return', authenticateToken, async (req, res) => {
   const { id } = req.params;
   try {
-    // Reset asset owner and set status Active
-    await db.query('UPDATE assets SET owner = NULL, status = "Active" WHERE id = ?', [id]);
+    const assets = await db.query('SELECT department, owner FROM assets WHERE id = ?', [id]);
+    const dept = assets.length > 0 ? assets[0].department : null;
+
+    // Reset owner to department name if assigned to a department, keeping department intact
+    await db.query(
+      'UPDATE assets SET owner = ?, department = ?, status = "Active" WHERE id = ?',
+      [dept || null, dept || null, id]
+    );
     
     // Mark any active allocation for this asset as Returned
     await db.query('UPDATE allocations SET status = "Returned" WHERE assetId = ? AND status = "Approved"', [id]);
     
-    res.json({ success: true, message: 'Asset returned to company stock successfully!' });
+    res.json({ success: true, message: 'Asset returned to department stock successfully!' });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -407,6 +447,7 @@ app.post('/api/allocations/:id/action', authenticateToken, async (req, res) => {
     }
 
     const finalAssetId = assetId || allocs[0].assetId;
+    const targetDept = allocs[0].department || null;
 
     // 1. Update allocation status
     if (status === 'Approved') {
@@ -419,11 +460,16 @@ app.post('/api/allocations/:id/action', authenticateToken, async (req, res) => {
       const finalAssetName = assetRes.length > 0 ? assetRes[0].name : allocs[0].assetName;
 
       await db.query('UPDATE allocations SET status = ?, assetId = ?, assetName = ? WHERE id = ?', [status, finalAssetId, finalAssetName, id]);
-      await db.query('UPDATE assets SET owner = ?, status = "Active" WHERE id = ?', [allocs[0].allocatedTo, finalAssetId]);
+      await db.query('UPDATE assets SET owner = ?, department = ?, status = "Active" WHERE id = ?', [allocs[0].allocatedTo, targetDept, finalAssetId]);
     } else if (status === 'Returned') {
       await db.query('UPDATE allocations SET status = ? WHERE id = ?', [status, id]);
       if (finalAssetId) {
-        await db.query('UPDATE assets SET owner = NULL, status = "Active" WHERE id = ?', [finalAssetId]);
+        const assets = await db.query('SELECT department FROM assets WHERE id = ?', [finalAssetId]);
+        const dept = (assets.length > 0 && assets[0].department) ? assets[0].department : targetDept;
+        await db.query(
+          'UPDATE assets SET owner = ?, department = ?, status = "Active" WHERE id = ?',
+          [dept || null, dept || null, finalAssetId]
+        );
       }
     } else {
       await db.query('UPDATE allocations SET status = ? WHERE id = ?', [status, id]);

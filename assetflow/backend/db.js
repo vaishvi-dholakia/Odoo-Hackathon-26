@@ -181,6 +181,7 @@ async function initializeDatabase() {
   `);
 
   // Automatic column migrations for pre-existing MySQL databases
+  await addColumnIfNotExists('assets', 'department', 'VARCHAR(100) NULL');
   await addColumnIfNotExists('allocations', 'requestedBy', 'VARCHAR(255) NULL');
   await addColumnIfNotExists('allocations', 'requestedByEmail', 'VARCHAR(255) NULL');
   await addColumnIfNotExists('allocations', 'targetRole', 'VARCHAR(100) NULL');
@@ -192,6 +193,14 @@ async function initializeDatabase() {
 
   console.log('Database tables & column migrations verified successfully.');
   
+  // Auto-approve pre-existing pending allocations from direct department allocations
+  try {
+    await query("UPDATE allocations SET status = 'Approved', targetRole = 'Approved' WHERE status LIKE 'Pending%';");
+    await query("UPDATE assets a JOIN allocations alc ON a.id = alc.assetId SET a.owner = alc.allocatedTo, a.department = alc.department, a.status = 'Active' WHERE alc.status = 'Approved' AND alc.assetId IS NOT NULL AND alc.assetId != '' AND alc.assetId != 'null';");
+  } catch (e) {
+    console.warn("Notice updating pending allocations:", e.message);
+  }
+
   // Seed Database if empty
   await seedDatabase();
 }
@@ -218,8 +227,16 @@ async function seedDatabase() {
     }
   }
 
-  // Clean static seeded audit campaigns if present
-  await query("DELETE FROM audits WHERE id IN ('AUD-001', 'AUD-002');");
+  // Clean all dummy data except Admin account
+  console.log('Cleaning all dummy non-admin data...');
+  await query("DELETE FROM users WHERE role != 'Admin' AND role != 'admin';");
+  await query("DELETE FROM assets;");
+  await query("DELETE FROM allocations;");
+  await query("DELETE FROM bookings;");
+  await query("DELETE FROM maintenance;");
+  await query("DELETE FROM notifications;");
+  await query("DELETE FROM audits;");
+  console.log('Dummy non-admin data cleaned successfully.');
 
   console.log('Database verified successfully.');
 }

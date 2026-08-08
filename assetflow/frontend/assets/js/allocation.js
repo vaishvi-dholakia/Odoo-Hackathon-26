@@ -56,10 +56,15 @@ async function loadAllocations() {
     } else if (role === 'Employee') {
       deptQueue = myRequests;
     } else if (role === 'Department Head' || role === 'DepartmentHead') {
-      deptQueue = allocations.filter(a =>
-        a.department && a.department.toLowerCase() === userDept &&
-        (!a.requestedByEmail || a.requestedByEmail.toLowerCase() !== userEmail)
-      );
+      const deptLower = (userDept || '').toLowerCase();
+      deptQueue = allocations.filter(a => {
+        const allocDept = (a.department || '').toLowerCase();
+        const allocTo = (a.allocatedTo || '').toLowerCase();
+        const matchDept = (allocDept && (allocDept.includes(deptLower) || deptLower.includes(allocDept)));
+        const matchTo = (allocTo && (allocTo.includes(deptLower) || deptLower.includes(allocTo)));
+        const isSelf = a.requestedByEmail && a.requestedByEmail.toLowerCase() === userEmail;
+        return (matchDept || matchTo) && !isSelf;
+      });
     } else {
       // Asset Manager sees all department requests
       deptQueue = allocations;
@@ -95,14 +100,23 @@ async function populateDepartmentDropdowns() {
     if (lblWorkspace) lblWorkspace.innerHTML = 'Allocate To Employee <span class="text-danger">*</span>';
     if (lblModal) lblModal.innerHTML = 'Allocate To Employee <span class="text-danger">*</span>';
 
-    // Fetch users list for employee allocation
+    // Fetch users list for employee allocation (filter out retired/former/inactive employees)
     let employees = [];
     try {
       const usersList = await window.ApiService.users.list();
       if (Array.isArray(usersList)) {
         const userDept = (currentUser.department || '').toLowerCase();
+        
+        const isRetiredOrFormer = (u) => {
+          const status = (u.status || '').toLowerCase();
+          const roleStr = (u.role || '').toLowerCase();
+          return status.includes('former') || status.includes('retired') || status.includes('inactive') ||
+                 roleStr.includes('former') || roleStr.includes('alumni') || roleStr.includes('retired');
+        };
+
         employees = usersList.filter(u => 
-          !userDept || (u.department && u.department.toLowerCase() === userDept)
+          u.department && userDept && (u.department.toLowerCase().includes(userDept) || userDept.includes(u.department.toLowerCase())) &&
+          !isRetiredOrFormer(u)
         );
       }
     } catch (e) {
@@ -186,17 +200,51 @@ async function populateDepartmentDropdowns() {
 
 async function initializeWorkspace() {
   try {
-    loadedAssets = await window.ApiService.assets.list();
+    const role = window.RbacService.getCurrentUserRole();
+    const currentUser = window.RbacService.getCurrentUser() || {};
+    const userDept = (currentUser.department || '').toLowerCase();
+    const isDeptHead = (role === 'Department Head' || role === 'DepartmentHead');
+
+    let allAssets = await window.ApiService.assets.list();
+    let allAllocations = window.ApiService.allocations ? await window.ApiService.allocations.list() : [];
+
+    if (isDeptHead && userDept) {
+      const deptAllocAssetIds = new Set(
+        (allAllocations || []).filter(al => {
+          if (al.status !== 'Approved') return false;
+          const alDept = (al.department || '').toLowerCase();
+          const alTarget = (al.allocatedTo || '').toLowerCase();
+          return (alDept && (alDept.includes(userDept) || userDept.includes(alDept))) ||
+                 (alTarget && (alTarget.includes(userDept) || userDept.includes(alTarget)));
+        }).map(al => String(al.assetId))
+      );
+
+      loadedAssets = allAssets.filter(a => {
+        const aDept = (a.department || '').toLowerCase();
+        const aOwner = (a.owner || '').toLowerCase();
+        const aLoc = (a.location || '').toLowerCase();
+        return (aDept && (aDept.includes(userDept) || userDept.includes(aDept))) ||
+               (aOwner && (aOwner.includes(userDept) || userDept.includes(aOwner))) ||
+               (aLoc && (aLoc.includes(userDept) || userDept.includes(aLoc))) ||
+               deptAllocAssetIds.has(String(a.id));
+      });
+    } else {
+      loadedAssets = allAssets;
+    }
     
     // Fill workspace asset dropdown
     const assetSelect = document.getElementById('workspace-asset-select');
     if (assetSelect) {
-      let html = '<option value="">-- Choose an asset --</option>';
-      loadedAssets.forEach(a => {
-        const assignedInfo = a.owner ? ` [Allocated to ${a.owner}]` : ' [Available]';
-        html += `<option value="${a.id}">${a.id} - ${a.name}${assignedInfo}</option>`;
-      });
-      assetSelect.innerHTML = html;
+      if (loadedAssets.length === 0) {
+        assetSelect.innerHTML = `<option value="">No assets available for ${currentUser.department || 'this'} department</option>`;
+      } else {
+        let html = '<option value="">-- Choose an asset --</option>';
+        loadedAssets.forEach(a => {
+          const assignedInfo = a.owner ? ` [Allocated to ${a.owner}]` : ' [Available]';
+          html += `<option value="${a.id}">${a.id} - ${a.name}${assignedInfo}</option>`;
+        });
+        assetSelect.innerHTML = html;
+      }
     }
 
     // Populate department dropdowns
@@ -209,6 +257,7 @@ async function initializeWorkspace() {
 function handleAssetSelection(assetId) {
   const conflictCard = document.getElementById('workspace-alloc-conflict-card');
   const conflictMessage = document.getElementById('workspace-conflict-message');
+  const conflictSub = conflictCard ? conflictCard.querySelector('.small') : null;
   const transferForm = document.getElementById('workspace-transfer-form');
   const standardForm = document.getElementById('workspace-standard-alloc-form');
   const transferFromInput = document.getElementById('workspace-transfer-from');
@@ -216,17 +265,17 @@ function handleAssetSelection(assetId) {
   const historyList = document.getElementById('workspace-alloc-history-list');
 
   if (!assetId) {
-    conflictCard.classList.add('d-none');
-    transferForm.classList.add('d-none');
-    standardForm.classList.add('d-none');
-    historySection.classList.add('d-none');
+    if (conflictCard) conflictCard.classList.add('d-none');
+    if (transferForm) transferForm.classList.add('d-none');
+    if (standardForm) standardForm.classList.add('d-none');
+    if (historySection) historySection.classList.add('d-none');
     return;
   }
 
   const asset = loadedAssets.find(a => String(a.id) === String(assetId));
   if (!asset) return;
 
-  historySection.classList.remove('d-none');
+  if (historySection) historySection.classList.remove('d-none');
 
   // Populate history
   let historyHtml = `
@@ -234,27 +283,92 @@ function handleAssetSelection(assetId) {
       No previous allocation history for this asset.
     </div>
   `;
-  historyList.innerHTML = historyHtml;
+  if (historyList) historyList.innerHTML = historyHtml;
 
-  // Check allocation conflict
-  if (asset.owner) {
-    conflictCard.classList.remove('d-none');
-    conflictMessage.textContent = `Already Allocated to ${asset.owner}`;
-    transferForm.classList.remove('d-none');
-    standardForm.classList.add('d-none');
-    if (transferFromInput) transferFromInput.value = asset.owner;
-  } else {
-    conflictCard.classList.add('d-none');
-    transferForm.classList.add('d-none');
-    standardForm.classList.remove('d-none');
-    
-    // Set default return date to 1 month from now
-    const returnDate = document.getElementById('workspace-alloc-date');
-    if (returnDate) {
-      const nextMonth = new Date();
-      nextMonth.setMonth(nextMonth.getMonth() + 1);
-      returnDate.value = nextMonth.toISOString().split('T')[0];
+  const role = window.RbacService.getCurrentUserRole();
+  const currentUser = window.RbacService.getCurrentUser() || {};
+  const userDept = (currentUser.department || '').toLowerCase();
+  const isDeptHeadOrEmp = (role === 'Department Head' || role === 'DepartmentHead' || role === 'Employee');
+
+  const ownerLower = (asset.owner || '').toLowerCase();
+  const isDeptStock = userDept && ownerLower && (ownerLower === userDept || ownerLower.includes(userDept) || userDept.includes(ownerLower));
+
+  if (!asset.owner) {
+    // Unassigned asset -> Standard allocation
+    if (conflictCard) conflictCard.classList.add('d-none');
+    if (transferForm) transferForm.classList.add('d-none');
+    if (standardForm) standardForm.classList.remove('d-none');
+  } else if (isDeptHeadOrEmp && isDeptStock) {
+    // Asset belongs to this department (e.g. Allocated to Accounting)
+    // Department Head can assign it directly to any employee in their department!
+    if (conflictCard) {
+      conflictCard.classList.remove('d-none');
+      conflictCard.style.backgroundColor = 'rgba(37, 99, 235, 0.1)';
+      conflictCard.style.border = '1px solid rgba(37, 99, 235, 0.3)';
+      conflictCard.style.color = '#2563EB';
+      if (conflictMessage) conflictMessage.textContent = `Asset in ${asset.owner} Department Pool`;
+      if (conflictSub) conflictSub.textContent = `Select an employee below to assign this asset to them.`;
     }
+    if (transferForm) transferForm.classList.add('d-none');
+    if (standardForm) standardForm.classList.remove('d-none');
+  } else if (isDeptHeadOrEmp) {
+    // Check if asset owner is an employee in this department
+    let isMemberOwner = false;
+    try {
+      const workspaceAllocToSelect = document.getElementById('workspace-alloc-to');
+      if (workspaceAllocToSelect) {
+        const options = Array.from(workspaceAllocToSelect.options);
+        isMemberOwner = options.some(opt => opt.value && opt.value.toLowerCase() === ownerLower);
+      }
+    } catch (e) {}
+
+    if (isMemberOwner) {
+      // Currently assigned to an employee in this department -> Can re-assign
+      if (conflictCard) {
+        conflictCard.classList.remove('d-none');
+        conflictCard.style.backgroundColor = 'rgba(234, 179, 8, 0.1)';
+        conflictCard.style.border = '1px solid rgba(234, 179, 8, 0.3)';
+        conflictCard.style.color = '#CA8A04';
+        if (conflictMessage) conflictMessage.textContent = `Currently Allocated to ${asset.owner}`;
+        if (conflictSub) conflictSub.textContent = `Select a new employee below to re-assign this asset.`;
+      }
+      if (transferForm) transferForm.classList.add('d-none');
+      if (standardForm) standardForm.classList.remove('d-none');
+    } else {
+      // Allocated to a DIFFERENT department -> Show Transfer request form
+      if (conflictCard) {
+        conflictCard.classList.remove('d-none');
+        conflictCard.style.backgroundColor = 'rgba(239, 68, 68, 0.1)';
+        conflictCard.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+        conflictCard.style.color = '#EF4444';
+        if (conflictMessage) conflictMessage.textContent = `Already Allocated to ${asset.owner}`;
+        if (conflictSub) conflictSub.textContent = `Direct re-allocation across departments blocked - submit a transfer request below`;
+      }
+      if (transferForm) transferForm.classList.remove('d-none');
+      if (standardForm) standardForm.classList.add('d-none');
+      if (transferFromInput) transferFromInput.value = asset.owner;
+    }
+  } else {
+    // Asset Manager / Admin view
+    if (conflictCard) {
+      conflictCard.classList.remove('d-none');
+      conflictCard.style.backgroundColor = 'rgba(239, 68, 68, 0.1)';
+      conflictCard.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+      conflictCard.style.color = '#EF4444';
+      if (conflictMessage) conflictMessage.textContent = `Already Allocated to ${asset.owner}`;
+      if (conflictSub) conflictSub.textContent = `Direct re-allocation is blocked - submit a transfer request below`;
+    }
+    if (transferForm) transferForm.classList.remove('d-none');
+    if (standardForm) standardForm.classList.add('d-none');
+    if (transferFromInput) transferFromInput.value = asset.owner;
+  }
+
+  // Set default return date to 1 month from now
+  const returnDate = document.getElementById('workspace-alloc-date');
+  if (returnDate && !returnDate.value) {
+    const nextMonth = new Date();
+    nextMonth.setMonth(nextMonth.getMonth() + 1);
+    returnDate.value = nextMonth.toISOString().split('T')[0];
   }
 }
 
@@ -277,13 +391,12 @@ function renderAllocationsTable(allocations, tableSelector = '#allocations-table
     let canApprove = false;
     const isSelfRequest = alloc.requestedByEmail && alloc.requestedByEmail.toLowerCase() === userEmail;
 
-    if (role === 'Asset Manager' || role === 'AssetManager') {
+    if (role === 'Asset Manager' || role === 'AssetManager' || role === 'Admin') {
       canApprove = true;
-    } else if ((role === 'Department Head' || role === 'DepartmentHead')) {
+    } else if (role === 'Department Head' || role === 'DepartmentHead') {
       const allocDept = (alloc.department || '').toLowerCase();
-      // Department Head can ONLY approve requests from EMPLOYEES in their own department.
-      // CANNOT approve their own requisition!
-      if (!isSelfRequest && allocDept === userDept && (alloc.targetRole === 'Department Head' || (alloc.status && alloc.status.includes('Department Head')))) {
+      const matchDept = allocDept && (allocDept.includes(userDept) || userDept.includes(allocDept));
+      if (!isSelfRequest && matchDept) {
         canApprove = true;
       }
     }
@@ -496,17 +609,48 @@ async function setupEventListeners() {
     openModalBtn.addEventListener('click', async () => {
       window.AssetFlowLoader.show();
       try {
-        const assets = await window.ApiService.assets.list();
+        const role = window.RbacService.getCurrentUserRole();
+        const currentUser = window.RbacService.getCurrentUser() || {};
+        const userDept = (currentUser.department || '').toLowerCase();
+        const isDeptHead = (role === 'Department Head' || role === 'DepartmentHead');
+
+        let assets = await window.ApiService.assets.list();
+        if (isDeptHead && userDept) {
+          const allAllocations = window.ApiService.allocations ? await window.ApiService.allocations.list() : [];
+          const deptAllocAssetIds = new Set(
+            (allAllocations || []).filter(al => {
+              if (al.status !== 'Approved') return false;
+              const alDept = (al.department || '').toLowerCase();
+              const alTarget = (al.allocatedTo || '').toLowerCase();
+              return (alDept && (alDept.includes(userDept) || userDept.includes(alDept))) ||
+                     (alTarget && (alTarget.includes(userDept) || userDept.includes(alTarget)));
+            }).map(al => String(al.assetId))
+          );
+
+          assets = assets.filter(a => {
+            const aDept = (a.department || '').toLowerCase();
+            const aOwner = (a.owner || '').toLowerCase();
+            const aLoc = (a.location || '').toLowerCase();
+            return (aDept && (aDept.includes(userDept) || userDept.includes(aDept))) ||
+                   (aOwner && (aOwner.includes(userDept) || userDept.includes(aOwner))) ||
+                   (aLoc && (aLoc.includes(userDept) || userDept.includes(aLoc))) ||
+                   deptAllocAssetIds.has(String(a.id));
+          });
+        }
+
         const select = document.getElementById('alloc-asset-id');
         if (select) {
-          // Fill only active, non-assigned or assignable assets
-          let optionsHtml = '<option value="">Select asset to allocate...</option>';
-          assets.forEach(asset => {
-            if (asset.status !== 'Disposed') {
-              optionsHtml += `<option value="${asset.id}" data-name="${asset.name}">${asset.id} - ${asset.name} (${asset.status})</option>`;
-            }
-          });
-          select.innerHTML = optionsHtml;
+          if (assets.length === 0) {
+            select.innerHTML = `<option value="">No assets available for ${currentUser.department || 'this'} department</option>`;
+          } else {
+            let optionsHtml = '<option value="">Select asset to allocate...</option>';
+            assets.forEach(asset => {
+              if (asset.status !== 'Disposed') {
+                optionsHtml += `<option value="${asset.id}" data-name="${asset.name}">${asset.id} - ${asset.name} (${asset.status})</option>`;
+              }
+            });
+            select.innerHTML = optionsHtml;
+          }
         }
 
         // Set default date to today
@@ -752,9 +896,10 @@ async function setupEventListeners() {
 
         await window.ApiService.allocations.create(payload);
 
+        const isDeptHead = (role === 'Department Head' || role === 'DepartmentHead');
         Swal.fire({
-          title: 'Request Submitted',
-          text: 'New allocation request submitted for manager review.',
+          title: isDeptHead ? 'Asset Allocated!' : 'Request Submitted',
+          text: isDeptHead ? `${assetName} has been directly allocated to ${allocatedTo}.` : 'New allocation request submitted for manager review.',
           icon: 'success',
           confirmButtonColor: '#2563EB'
         });

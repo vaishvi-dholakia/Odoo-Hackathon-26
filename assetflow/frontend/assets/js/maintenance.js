@@ -64,9 +64,32 @@ async function loadMaintenanceData() {
 
     const role = window.RbacService.getCurrentUserRole();
     if (role === 'Employee') {
-      const user = window.RbacService.getCurrentUser();
-      const userName = (user ? (user.fullName || user.name) : '').toLowerCase();
-      const myAssetIds = new Set(allAssets.filter(a => a.owner && a.owner.toLowerCase() === userName).map(a => String(a.id)));
+      const user = window.RbacService.getCurrentUser() || {};
+      const userEmail = (user.email || '').toLowerCase().trim();
+      const userDept = (user.department || '').toLowerCase().trim();
+
+      let userNamesSet = new Set();
+      if (user.fullName) userNamesSet.add(user.fullName.toLowerCase().trim());
+      if (user.name) userNamesSet.add(user.name.toLowerCase().trim());
+      if (user.email) userNamesSet.add(user.email.toLowerCase().trim());
+
+      const userNamesList = Array.from(userNamesSet).filter(Boolean);
+
+      const myAssetIds = new Set(
+        allAssets.filter(a => {
+          if (a.owner) {
+            const ownerLower = a.owner.toLowerCase().trim();
+            if (userNamesSet.has(ownerLower)) return true;
+            if (userNamesList.some(name => ownerLower.includes(name) || name.includes(ownerLower))) return true;
+            if (userDept && (ownerLower === userDept || ownerLower.includes(userDept) || userDept.includes(ownerLower))) return true;
+          }
+          if (a.department) {
+            const aDept = a.department.toLowerCase().trim();
+            if (userDept && (aDept.includes(userDept) || userDept.includes(aDept))) return true;
+          }
+          return false;
+        }).map(a => String(a.id))
+      );
       logs = logs.filter(l => myAssetIds.has(String(l.assetId)));
     }
 
@@ -446,9 +469,51 @@ async function setupEventListeners() {
         let assets = await window.ApiService.assets.list();
         const role = window.RbacService.getCurrentUserRole();
         if (role === 'Employee') {
-          const user = window.RbacService.getCurrentUser();
-          const userName = (user ? (user.fullName || user.name) : '').toLowerCase();
-          assets = assets.filter(a => a.owner && a.owner.toLowerCase() === userName);
+          const user = window.RbacService.getCurrentUser() || {};
+          const userEmail = (user.email || '').toLowerCase().trim();
+          const userDept = (user.department || '').toLowerCase().trim();
+
+          let userNamesSet = new Set();
+          if (user.fullName) userNamesSet.add(user.fullName.toLowerCase().trim());
+          if (user.name) userNamesSet.add(user.name.toLowerCase().trim());
+          if (user.email) userNamesSet.add(user.email.toLowerCase().trim());
+
+          const userNamesList = Array.from(userNamesSet).filter(Boolean);
+
+          let approvedAllocAssetIds = new Set();
+          try {
+            const allocList = window.ApiService.allocations ? await window.ApiService.allocations.list() : [];
+            (allocList || []).forEach(al => {
+              if (al.assetId) {
+                const statusLower = (al.status || '').toLowerCase();
+                if (statusLower === 'approved' || statusLower.includes('approve')) {
+                  const target = (al.allocatedTo || '').toLowerCase().trim();
+                  const reqEmail = (al.requestedByEmail || '').toLowerCase().trim();
+
+                  const matchTarget = userNamesSet.has(target) || userNamesList.some(name => target.includes(name) || name.includes(target));
+                  const matchEmail = userEmail && (reqEmail === userEmail || target.includes(userEmail));
+                  if (matchTarget || matchEmail) {
+                    approvedAllocAssetIds.add(String(al.assetId));
+                  }
+                }
+              }
+            });
+          } catch (e) {}
+
+          assets = assets.filter(a => {
+            if (approvedAllocAssetIds.has(String(a.id))) return true;
+            if (a.owner) {
+              const ownerLower = a.owner.toLowerCase().trim();
+              if (userNamesSet.has(ownerLower)) return true;
+              if (userNamesList.some(name => ownerLower.includes(name) || name.includes(ownerLower))) return true;
+              if (userDept && (ownerLower === userDept || ownerLower.includes(userDept) || userDept.includes(ownerLower))) return true;
+            }
+            if (a.department) {
+              const aDept = a.department.toLowerCase().trim();
+              if (userDept && (aDept.includes(userDept) || userDept.includes(aDept))) return true;
+            }
+            return false;
+          });
         }
 
         const select = document.getElementById('maint-asset-id');

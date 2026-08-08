@@ -34,8 +34,8 @@ function setupScopeDropdownForRole() {
   if (role === 'Employee') {
     if (scopeContainer) scopeContainer.style.display = 'block';
     scopeSelect.innerHTML = `
-      <option value="department" selected>🏢 Department Assets</option>
-      <option value="my">💻 My Assets</option>
+      <option value="my" selected>💻 My Assets</option>
+      <option value="department">🏢 Department Assets</option>
     `;
   } else if (role === 'Department Head' || role === 'DepartmentHead') {
     if (scopeContainer) scopeContainer.style.display = 'block';
@@ -65,39 +65,135 @@ async function loadAssets() {
 }
 
 async function applyScopeAndTableFilters() {
-  const scopeVal = document.getElementById('filter-scope') ? document.getElementById('filter-scope').value : 'department';
+  const userRole = window.RbacService.getCurrentUserRole();
+  const defaultScope = userRole === 'Employee' ? 'my' : 'department';
+  const scopeSelect = document.getElementById('filter-scope');
+  const scopeVal = scopeSelect ? scopeSelect.value : defaultScope;
+  
   const user = window.RbacService.getCurrentUser() || {};
-  const userDept = (user.department || 'Management').toLowerCase();
-  const userName = (user.fullName || user.name || '').toLowerCase();
+  const userEmail = (user.email || '').toLowerCase().trim();
+  const userDept = (user.department || 'Management').toLowerCase().trim();
 
+  let userNamesSet = new Set();
+  if (user.fullName) userNamesSet.add(user.fullName.toLowerCase().trim());
+  if (user.name) userNamesSet.add(user.name.toLowerCase().trim());
+  if (user.email) userNamesSet.add(user.email.toLowerCase().trim());
+
+  // Also resolve full details from Users API if available
+  try {
+    const usersList = window.ApiService.users ? await window.ApiService.users.list() : [];
+    if (Array.isArray(usersList)) {
+      const myUserRecord = usersList.find(u => u.email && u.email.toLowerCase().trim() === userEmail);
+      if (myUserRecord) {
+        if (myUserRecord.fullName) userNamesSet.add(myUserRecord.fullName.toLowerCase().trim());
+        if (myUserRecord.name) userNamesSet.add(myUserRecord.name.toLowerCase().trim());
+        if (myUserRecord.email) userNamesSet.add(myUserRecord.email.toLowerCase().trim());
+      }
+    }
+  } catch (e) {
+    console.warn("Could not fetch user profile for scope filter:", e);
+  }
+
+  const userNamesList = Array.from(userNamesSet).filter(Boolean);
   let filtered = [...rawAssetsList];
 
   if (scopeVal === 'my') {
-    filtered = filtered.filter(a => a.owner && a.owner.toLowerCase() === userName);
+    let approvedAllocAssetIds = new Set();
+
+    try {
+      const allocList = window.ApiService.allocations ? await window.ApiService.allocations.list() : [];
+      (allocList || []).forEach(al => {
+        if (al.assetId) {
+          const statusLower = (al.status || '').toLowerCase();
+          if (statusLower === 'approved' || statusLower.includes('approve')) {
+            const target = (al.allocatedTo || '').toLowerCase().trim();
+            const reqEmail = (al.requestedByEmail || '').toLowerCase().trim();
+            const reqBy = (al.requestedBy || '').toLowerCase().trim();
+
+            const matchTarget = userNamesSet.has(target) || userNamesList.some(name => target.includes(name) || name.includes(target));
+            const matchEmail = userEmail && (reqEmail === userEmail || target.includes(userEmail));
+            const matchReq = userNamesSet.has(reqBy) || userNamesList.some(name => reqBy.includes(name) || name.includes(reqBy));
+
+            if (matchTarget || matchEmail || matchReq) {
+              approvedAllocAssetIds.add(String(al.assetId));
+            }
+          }
+        }
+      });
+    } catch (e) {
+      console.warn("Error fetching allocations in assets filter:", e);
+    }
+
+    filtered = filtered.filter(a => {
+      // 1. Matched via allocation record
+      if (approvedAllocAssetIds.has(String(a.id))) return true;
+      // 2. Matched via asset owner property
+      if (a.owner) {
+        const ownerLower = a.owner.toLowerCase().trim();
+        if (userNamesSet.has(ownerLower)) return true;
+        if (userNamesList.some(name => ownerLower.includes(name) || name.includes(ownerLower))) return true;
+        if (userDept && (ownerLower === userDept || ownerLower.includes(userDept) || userDept.includes(ownerLower))) return true;
+      }
+      return false;
+    });
   } else if (scopeVal === 'department') {
-    let deptMemberNames = new Set();
-    if (user.fullName) deptMemberNames.add(user.fullName.toLowerCase());
-    if (user.name) deptMemberNames.add(user.name.toLowerCase());
+    let deptMemberNames = new Set(userNamesList);
+    if (userDept) deptMemberNames.add(userDept);
 
     try {
       const usersList = window.ApiService.users ? await window.ApiService.users.list() : [];
-      usersList.forEach(u => {
-        if ((u.department || '').toLowerCase() === userDept) {
-          if (u.fullName) deptMemberNames.add(u.fullName.toLowerCase());
-          if (u.name) deptMemberNames.add(u.name.toLowerCase());
-        }
-      });
+      if (Array.isArray(usersList)) {
+        usersList.forEach(u => {
+          const uDept = (u.department || '').toLowerCase().trim();
+          if (uDept && (uDept.includes(userDept) || userDept.includes(uDept))) {
+            if (u.fullName) deptMemberNames.add(u.fullName.toLowerCase().trim());
+            if (u.name) deptMemberNames.add(u.name.toLowerCase().trim());
+            if (u.email) deptMemberNames.add(u.email.toLowerCase().trim());
+          }
+        });
+      }
     } catch (e) {
       console.warn("Could not fetch users for department scope filter:", e);
     }
 
+    let deptAllocAssetIds = new Set();
+    try {
+      const allocList = window.ApiService.allocations ? await window.ApiService.allocations.list() : [];
+      (allocList || []).forEach(al => {
+        if (al.assetId) {
+          const statusLower = (al.status || '').toLowerCase();
+          if (statusLower === 'approved' || statusLower.includes('approve')) {
+            const alDept = (al.department || '').toLowerCase().trim();
+            const alTarget = (al.allocatedTo || '').toLowerCase().trim();
+            const matchDept = (alDept && (alDept.includes(userDept) || userDept.includes(alDept)));
+            const matchTarget = (alTarget && (alTarget.includes(userDept) || userDept.includes(alTarget) || deptMemberNames.has(alTarget)));
+            if (matchDept || matchTarget) {
+              deptAllocAssetIds.add(String(al.assetId));
+            }
+          }
+        }
+      });
+    } catch (e) {
+      console.warn("Could not fetch allocations for department scope filter:", e);
+    }
+
     filtered = filtered.filter(a => {
-      if (!a.owner || a.owner.trim() === '') return true; // Available stock to request
-      const ownerName = a.owner.toLowerCase();
-      if (deptMemberNames.has(ownerName)) return true;
-      const loc = (a.location || '').toLowerCase();
-      if (loc && loc.includes(userDept)) return true;
-      return false; // Exclude assets owned by users in other departments
+      const aDept = (a.department || '').toLowerCase().trim();
+      // 1. Direct department match on asset record
+      if (aDept && (aDept.includes(userDept) || userDept.includes(aDept))) return true;
+      // 2. Approved allocation to department or department member
+      if (deptAllocAssetIds.has(String(a.id))) return true;
+      // 3. Asset owner is in department or matches department name
+      if (a.owner) {
+        const ownerLower = a.owner.toLowerCase().trim();
+        if (deptMemberNames.has(ownerLower)) return true;
+        if (userDept && (ownerLower.includes(userDept) || userDept.includes(ownerLower))) return true;
+      }
+      // 4. Location matches department
+      const loc = (a.location || '').toLowerCase().trim();
+      if (loc && userDept && (loc.includes(userDept) || userDept.includes(loc))) return true;
+      
+      return false;
     });
   }
 
