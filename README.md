@@ -2,37 +2,39 @@
 
 AssetFlow is a responsive, full-stack enterprise resource planning (ERP) system designed for operations teams to track hardware inventory, manage software licenses, schedule audits, coordinate resource bookings (such as conference rooms and company vehicles), and log maintenance records.
 
-It features a modern, premium design built using standard HTML5/CSS3/JS, styled with **Bootstrap 5**, and connected to a **Node.js/Express** backend backed by a **MySQL** database.
+It features a modern, premium design built using standard HTML5/CSS3/JS, styled with **Bootstrap 5**, and connected to a robust **Node.js/Express** backend backed by a fully persistent **MySQL** database.
 
 ---
 
 ## 🚀 Key Features
 
 1. **Role-Based Access Control (RBAC)**:
-   - Customized dashboards and permissions for **Admins**, **Asset Managers**, **Department Heads**, and **Employees**.
-2. **Secure Login & Authentication**:
-   - JWT-based authentication.
-   - **Demo Quick-Fill Autocomplete (Security Patched)**: Fills demo account emails for evaluation convenience but requires manual password input (`Password123!`) to prevent automated login bypasses.
-3. **Department Head Promotion & Transition Logs**:
-   - Assigning a new department head prompts the Admin to specify the old head's status: **Retired** (deactivates account), **Shifted to another city / Transferred** (updates notes), **Demoted to Employee**, or **Resigned**.
-   - Tracks former department heads in the **Former Department Heads & Alumni** table with custom transition notes.
-4. **Asset Tracking & Allocations**:
-   - Create, update, and delete assets with status indicators.
-   - Request assets, approve/reject allocations, and return assets.
-5. **Resource Bookings**:
+   - Customized dashboards, navigation, and permissions for **Admins**, **Asset Managers**, **Department Heads**, and **Employees**.
+2. **Enterprise Persistent Data Architecture**:
+   - 100% data persistence using MySQL. All application state, from user accounts to verification logs, is securely stored.
+   - Dynamic empty states replace hardcoded mock data for a clean, production-ready experience.
+3. **Advanced User & Organization Management**:
+   - Admins can register new users (Asset Managers, Dept Heads, Employees) directly from the dashboard.
+   - **Department Head Transitions**: Assigning a new department head prompts the Admin to specify the old head's status (Retired, Transferred, Demoted, Resigned), maintaining a clear audit log of "Former Department Heads & Alumni."
+4. **Tiered Asset Tracking & Allocations**:
+   - Comprehensive asset lifecycle management (Create, Update, Return, Delete).
+   - **Multi-Level Approval Workflow**: Employee requests route to Department Heads. Department Head requests route to Asset Managers.
+5. **Resource Bookings & Calendar**:
    - Check room/vehicle availability and book with overlapping time conflict prevention.
+   - FullCalendar integration with detailed event rendering (time slot, resource name, booker).
 6. **Maintenance & Auditing**:
-   - Schedule hardware/software audits, update audit progress, and manage maintenance repair cost logs.
-7. **Targeted Notifications**:
-   - Live alerts targeted by role (e.g. Asset Manager warnings) or user email.
+   - Schedule hardware/software audits, manage maintenance repair cost logs, and track real-time audit verification states directly in the database.
+7. **Secure Login & Authentication**:
+   - JWT-based authentication.
+   - Demo autocomplete options are provided for email convenience, but require manual password input to prevent automated bypasses.
 
 ---
 
 ## 🛠️ Tech Stack
 
-- **Frontend**: HTML5, CSS3, JavaScript (ES6+), Bootstrap 5, Axios, SweetAlert2
-- **Backend**: Node.js, Express, JSON Web Tokens (JWT)
-- **Database**: MySQL (with automated table creation and default seeding)
+- **Frontend**: HTML5, CSS3, Vanilla JavaScript (ES6+), Bootstrap 5, Axios, SweetAlert2, FullCalendar
+- **Backend**: Node.js, Express.js, JSON Web Tokens (JWT)
+- **Database**: MySQL (with automated table creation, migration, and seeding)
 
 ---
 
@@ -41,22 +43,21 @@ It features a modern, premium design built using standard HTML5/CSS3/JS, styled 
 ```
 ├── assetflow/
 │   ├── backend/
-│   │   ├── db.js          # Database setup, tables schema & seeder logic
-│   │   ├── server.js      # Express application, routes, and authentication middlewares
+│   │   ├── db.js          # Database setup, persistent tables schema & seeder logic
+│   │   ├── server.js      # Express application, routes, auth middlewares, business logic
 │   │   ├── package.json   # Node server dependencies
 │   │   └── .env           # Environment configurations (DB connection, JWT secret)
 │   │
 │   └── frontend/
 │       ├── index.html     # Landing Page
 │       ├── assets/
-│       │   ├── css/       # Premium style tokens
+│       │   ├── css/       # Premium style tokens and custom CSS
 │       │   └── js/        # api.js, auth.js, org-setup.js and routing logic
 │       └── pages/
 │           ├── login.html
-│           ├── signup.html
 │           ├── dashboard.html
 │           ├── org-setup.html
-│           └── ... (allocation, booking, maintenance pages)
+│           └── ... (allocation, booking, maintenance, reports pages)
 └── README.md              # Main Documentation
 ```
 
@@ -68,12 +69,12 @@ It features a modern, premium design built using standard HTML5/CSS3/JS, styled 
 - [Node.js](https://nodejs.org/) installed.
 - [MySQL Server](https://www.mysql.com/) installed and running locally.
 
-### 1. Configure Backend environment
+### 1. Configure Backend Environment
 Navigate to the backend directory and configure the environment variables:
 ```bash
 cd assetflow/backend
 ```
-Create/edit the `.env` file:
+Create or edit the `.env` file (you can use `.env-example` as a template):
 ```env
 PORT=3000
 DB_HOST=localhost
@@ -82,6 +83,7 @@ DB_PASSWORD=YOUR_MYSQL_PASSWORD
 DB_NAME=assetflow_db
 JWT_SECRET=assetflow_super_secret_key_123!
 ```
+*Make sure your MySQL server is running and the credentials match.*
 
 ### 2. Run the Backend Server
 Install dependencies and start the server:
@@ -89,25 +91,22 @@ Install dependencies and start the server:
 npm install
 npm start
 ```
-*Note: The server will automatically create the `assetflow_db` database, initialize the tables, and seed them with default data if empty.*
+*Note: Upon startup, the server will automatically connect to MySQL, create the `assetflow_db` database, initialize the tables for persistence, and seed them with required default master data.*
 
 ### 3. Open the Frontend
-Since the frontend consists of flat HTML files, you can open `assetflow/frontend/index.html` directly in your browser, or use a local HTTP server such as VS Code's **Live Server** extension.
+Since the frontend consists of static HTML/JS/CSS files, you can open `assetflow/frontend/index.html` directly in your browser, or use a local HTTP server such as VS Code's **Live Server** extension for the best experience.
 
 ---
 
-## 🔑 Default Credentials (All use Password: `Password123!`)
+## 🔑 Default Credentials
 
-For quick testing, you can use the **Quick Demo Accounts** dropdown on the login screen to fill the email address and log in using the password: **`Password123!`**
+Upon initialization, only the default **Admin** account is seeded into the database. All other users (Asset Managers, Department Heads, Employees) must be securely registered by the Admin via the Organization Setup dashboard.
 
-| User Role | Email | Access Scope |
-| :--- | :--- | :--- |
-| **Admin** | `admin@assetflow.com` | Org configuration, department management, promotions |
-| **Asset Manager** | `manager@assetflow.com` | Assets inventory, allocation requests, audit schedules |
-| **IT Head** | `it-head@assetflow.com` | IT resource requests, department logs |
-| **Employee** | `employee@assetflow.com` | Bookings, hardware requests |
+| User Role | Email | Password | Access Scope |
+| :--- | :--- | :--- | :--- |
+| **Admin** | `admin@assetflow.com` | `Password123!` | Org configuration, department management, user registration, promotions |
 
 ---
 
-## 🛡️ Fallback Sandbox (Offline Mode)
-If the backend is not running or unreachable, the application automatically redirects calls to a **LocalStorage Fallback Store**, allowing you to preview the dashboard and interact with all ERP features without needing MySQL active.
+## 🛡️ Database Reset & Cleanup
+For development and demonstration purposes, if you need to wipe all data and return to a clean state, an Admin user can use the **Reset Database** functionality located within the Admin Settings / Org Setup page. This will drop all tables and re-seed the default data cleanly.
